@@ -64,24 +64,29 @@ namespace UniGame.UnityCli.Editor.Tests
         }
 
         [Test]
-        public void Layout_SeparatesGlobalRegistrationAndDynamicPublication()
+        public void Layout_PrioritizesServerAndKeepsTechnicalIdentityOutOfPrimaryFlow()
         {
             var tree = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(
                 UnityCliSetupWindow.WindowUxmlPath);
             var root = tree.Instantiate();
 
-            Assert.NotNull(root.Q<Label>("this-project-id"));
-            Assert.NotNull(root.Q<Label>("this-editor-instance-id"));
+            Assert.NotNull(root.Q<VisualElement>("server-section"));
+            Assert.NotNull(root.Q<VisualElement>("server-lamp"));
+            Assert.NotNull(root.Q<Label>("server-primary-title"));
+            Assert.NotNull(root.Q<Label>("server-transport-value"));
+            Assert.NotNull(root.Q<Label>("this-project-name"));
             Assert.NotNull(root.Q<Label>("this-connection-state"));
-            Assert.NotNull(root.Q<Label>("this-heartbeat"));
             Assert.NotNull(root.Q<Label>("this-pipeline"));
+            Assert.IsNull(root.Q<Label>("this-project-id"));
+            Assert.IsNull(root.Q<Label>("this-editor-instance-id"));
+            Assert.IsNull(root.Q<Label>("this-heartbeat"));
+            Assert.IsNull(root.Q<Toggle>("http-transport"));
             Assert.NotNull(root.Q<VisualElement>("active-editors-container"));
             Assert.NotNull(root.Q<Label>("active-editors-count"));
             Assert.NotNull(root.Q<Label>("global-server-name"));
             Assert.AreEqual("unity_cli_mcp", root.Q<Label>("global-server-name").text);
             Assert.NotNull(root.Q<Label>("broker-port"));
             Assert.NotNull(root.Q<Label>("broker-lease-count"));
-            Assert.NotNull(root.Q<Label>("broker-policy"));
             Assert.NotNull(root.Q<Button>("review-configuration"));
             Assert.NotNull(root.Q<Button>("repair-configuration"));
             Assert.NotNull(root.Q<VisualElement>("preview-panel"));
@@ -97,7 +102,9 @@ namespace UniGame.UnityCli.Editor.Tests
             Assert.AreEqual("Documentation", root.Q<Button>("open-cli-docs").text);
             Assert.AreEqual("Documentation", root.Q<Button>("open-node-docs").text);
             Assert.AreEqual("Copy command", root.Q<Button>("copy-cli-command").text);
-            Assert.AreEqual("Start", root.Q<Button>("http-action").text);
+            Assert.AreEqual("Start HTTP server", root.Q<Button>("http-action").text);
+            Assert.IsTrue(root.Q<Button>("install-cli").ClassListContains("button-install"));
+            Assert.IsTrue(root.Q<Button>("install-pipeline").ClassListContains("button-install"));
             Assert.AreEqual(
                 "Remove managed data",
                 root.Q<Button>("remove-configuration").text);
@@ -110,17 +117,14 @@ namespace UniGame.UnityCli.Editor.Tests
         }
 
         [Test]
-        public void Layout_UsesAccessibleLabelsForAdvancedInputs()
+        public void Layout_UsesAccessibleLabelsForServerAndAdvancedInputs()
         {
             var tree = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(
                 UnityCliSetupWindow.WindowUxmlPath);
             var root = tree.Instantiate();
 
             Assert.AreEqual(
-                "Use shared loopback Streamable HTTP",
-                root.Q<Toggle>("http-transport").label);
-            Assert.AreEqual(
-                "Preferred HTTP port (0 = automatic)",
+                "Preferred port (0 = automatic)",
                 root.Q<UnityEngine.UIElements.IntegerField>("http-port").label);
             Assert.AreEqual("Diagnostic log", root.Q<TextField>("diagnostics").label);
             Assert.IsNotEmpty(root.Q<Button>("refresh-status").tooltip);

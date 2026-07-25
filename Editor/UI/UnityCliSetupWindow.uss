@@ -16,11 +16,7 @@
 .advanced-row,
 .preview-actions,
 .configuration-section,
-.configuration-actions,
-.architecture-strip,
-.architecture-step,
-.registration-banner,
-.broker-card {
+.configuration-actions {
     flex-direction: row;
     align-items: center;
 }
@@ -29,8 +25,7 @@
 .section-heading-row,
 .status-header,
 .advanced-row,
-.preview-actions,
-.registration-banner {
+.preview-actions {
     justify-content: space-between;
 }
 
@@ -41,8 +36,7 @@
 
 .hero-copy,
 .section-heading-copy,
-.configuration-copy,
-.step-copy {
+.configuration-copy {
     flex-grow: 1;
     min-width: 0;
 }
@@ -58,7 +52,6 @@
 .card-detail,
 .result-details,
 .advanced-status,
-.step-detail,
 .empty-detail {
     white-space: normal;
     color: var(--unity-colors-secondary-text);
@@ -81,8 +74,7 @@
 }
 
 .section,
-.advanced,
-.architecture-strip {
+.advanced {
     background-color: var(--unity-colors-box-background);
     border-color: var(--unity-colors-border);
     border-width: 1px;
@@ -90,40 +82,6 @@
     padding: 14px;
     margin-bottom: 10px;
     min-width: 0;
-}
-
-.architecture-strip {
-    justify-content: space-between;
-    padding-top: 11px;
-    padding-bottom: 11px;
-    flex-wrap: wrap;
-}
-
-.architecture-step {
-    flex-grow: 1;
-    flex-basis: 28%;
-    min-width: 180px;
-}
-
-.step-number {
-    width: 24px;
-    height: 24px;
-    margin-right: 8px;
-    padding-top: 3px;
-    -unity-text-align: middle-center;
-    -unity-font-style: bold;
-    border-radius: 12px;
-    background-color: rgba(72, 158, 222, 0.22);
-    color: rgb(92, 178, 239);
-}
-
-.step-title {
-    -unity-font-style: bold;
-}
-
-.step-detail {
-    font-size: 10px;
-    margin-top: 1px;
 }
 
 .architecture-arrow {
@@ -316,38 +274,6 @@
     margin-top: 8px;
 }
 
-.registration-banner,
-.broker-card {
-    padding: 9px 10px;
-    margin-bottom: 8px;
-    border-radius: 3px;
-    background-color: var(--unity-colors-default-background);
-}
-
-.registration-name,
-.metric-value {
-    font-size: 14px;
-    -unity-font-style: bold;
-}
-
-.broker-card {
-    align-items: stretch;
-    flex-wrap: wrap;
-}
-
-.broker-metric {
-    min-width: 90px;
-    padding-right: 18px;
-    margin-right: 12px;
-    border-right-color: var(--unity-colors-border);
-    border-right-width: 1px;
-}
-
-.broker-policy {
-    flex-grow: 1;
-    min-width: 220px;
-}
-
 .button-primary {
     min-height: 30px;
     padding-left: 16px;
@@ -371,6 +297,29 @@
     border-width: 0;
     background-color: rgba(0, 0, 0, 0);
     color: var(--unity-colors-link);
+}
+
+.button-install {
+    min-width: 92px;
+    min-height: 30px;
+    margin-top: 8px;
+    padding-left: 16px;
+    padding-right: 16px;
+    border-width: 1px;
+    border-color: rgb(73, 151, 207);
+    border-radius: 3px;
+    background-color: rgb(47, 123, 178);
+    color: rgb(255, 255, 255);
+    -unity-font-style: bold;
+}
+
+.button-install:hover {
+    background-color: rgb(58, 142, 201);
+    border-color: rgb(91, 176, 232);
+}
+
+.button-install:active {
+    background-color: rgb(37, 103, 151);
 }
 
 .card-actions,
@@ -440,6 +389,172 @@
 .option-toggle {
     margin-top: 2px;
     margin-bottom: 5px;
+}
+
+.hidden-technical-value {
+    display: none;
+}
+
+.server-section {
+    padding: 16px;
+    border-width: 2px;
+    border-color: rgba(67, 160, 105, 0.7);
+    background-color: rgba(38, 92, 60, 0.13);
+}
+
+.server-heading,
+.server-control-card,
+.server-summary {
+    flex-direction: row;
+    align-items: center;
+}
+
+.server-heading {
+    justify-content: space-between;
+}
+
+.server-section-title {
+    font-size: 18px;
+}
+
+.server-section-description {
+    margin-bottom: 7px;
+}
+
+.server-status-badge {
+    min-width: 96px;
+    margin-left: 12px;
+    padding: 5px 10px;
+    border-radius: 10px;
+    -unity-text-align: middle-center;
+    -unity-font-style: bold;
+    font-size: 10px;
+}
+
+.server-status-running {
+    background-color: rgba(48, 165, 96, 0.24);
+    color: rgb(90, 218, 139);
+}
+
+.server-status-warning {
+    background-color: rgba(218, 158, 46, 0.22);
+    color: rgb(241, 184, 70);
+}
+
+.server-status-stopped {
+    background-color: rgba(120, 120, 120, 0.22);
+    color: var(--unity-colors-secondary-text);
+}
+
+.server-control-card {
+    min-height: 68px;
+    padding: 12px;
+    border-width: 1px;
+    border-color: var(--unity-colors-border);
+    border-radius: 5px;
+    background-color: var(--unity-colors-default-background);
+}
+
+.server-lamp {
+    width: 16px;
+    height: 16px;
+    min-width: 16px;
+    margin-right: 12px;
+    border-radius: 8px;
+    border-width: 2px;
+}
+
+.server-lamp-running {
+    background-color: rgb(58, 190, 111);
+    border-color: rgb(114, 235, 160);
+}
+
+.server-lamp-warning {
+    background-color: rgb(218, 158, 46);
+    border-color: rgb(245, 196, 94);
+}
+
+.server-lamp-stopped {
+    background-color: rgb(92, 92, 92);
+    border-color: rgb(135, 135, 135);
+}
+
+.server-control-copy {
+    flex-grow: 1;
+    min-width: 180px;
+    margin-right: 14px;
+}
+
+.server-primary-title {
+    font-size: 14px;
+    -unity-font-style: bold;
+}
+
+.server-primary-detail {
+    margin-top: 3px;
+    white-space: normal;
+    color: var(--unity-colors-secondary-text);
+}
+
+.button-server-start,
+.button-server-stop {
+    min-width: 155px;
+    min-height: 36px;
+    padding-left: 16px;
+    padding-right: 16px;
+    border-width: 1px;
+    border-radius: 4px;
+    color: rgb(255, 255, 255);
+    -unity-font-style: bold;
+}
+
+.button-server-start {
+    border-color: rgb(59, 174, 106);
+    background-color: rgb(41, 145, 83);
+}
+
+.button-server-start:hover {
+    background-color: rgb(51, 168, 98);
+}
+
+.button-server-stop {
+    border-color: rgb(188, 83, 83);
+    background-color: rgb(145, 58, 58);
+}
+
+.button-server-stop:hover {
+    background-color: rgb(169, 69, 69);
+}
+
+.server-summary {
+    margin-top: 9px;
+    padding: 8px 10px;
+    border-radius: 4px;
+    background-color: rgba(0, 0, 0, 0.12);
+    flex-wrap: wrap;
+}
+
+.server-summary-item {
+    min-width: 150px;
+    flex-grow: 1;
+    margin-right: 12px;
+}
+
+.server-summary-value {
+    margin-top: 2px;
+    -unity-font-style: bold;
+}
+
+.server-options {
+    margin-top: 8px;
+}
+
+.server-options > .unity-foldout__content {
+    padding: 7px 10px 3px 18px;
+}
+
+.environment-card {
+    flex-basis: 28%;
 }
 
 .configuration-section {

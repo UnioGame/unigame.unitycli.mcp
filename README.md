@@ -241,15 +241,19 @@ All calls return a stable envelope with `ok`, `source`, `command`, `target`,
 
 `UniGame → Unity CLI MCP` is a UI Toolkit Control Center:
 
-1. **Environment** checks Unity CLI, Node, Pipeline, and the bundled server.
-2. **This Editor** shows the current instance ID, project ID, connection state,
-   heartbeat, descriptor, and the exact snake_case metadata published locally.
-3. **Active Editors** lists every live, stale, not-ready, duplicate, or corrupt
-   Editor registration so concurrent projects remain explicit.
-4. **Global Agent Registration** gives every client an MCP toggle, transport
-   selection, conflict state, and one shared `unity_cli_mcp` entry.
-5. **Shared HTTP Broker** displays endpoint, owner leases, health, and guarded
-   start/stop controls.
+1. **Environment** shows the three user-facing prerequisites and prominent
+   Install actions when Unity CLI or Pipeline is missing.
+2. **MCP Server** is a primary control with a green readiness lamp, explicit
+   stdio/HTTP state, endpoint, connected-project count, and a large
+   **Start HTTP server** or **Stop HTTP server** action. Starting HTTP selects
+   that transport automatically; there is no prerequisite transport checkbox.
+3. **This Editor** shows only the current project, Editor-tool readiness, and
+   Pipeline state. Technical IDs and heartbeat data stay in diagnostics.
+4. **Active Editors** lists the Unity projects currently available to agents.
+   Stale, duplicate, or corrupt registrations appear only as actionable
+   warnings.
+5. **Agent Integration** gives every client an MCP toggle and conflict state
+   while maintaining one shared `unity_cli_mcp` entry.
 6. **Skill** manages the project-local Agent Skill and mirrors.
 7. **Managed configuration** runs a read-only **Preview changes** operation.
    Exact create/update/remove targets, warnings, conflicts, and restart
@@ -261,10 +265,10 @@ explicitly uses `force`.
 Success lists clients that need a restart; failures automatically expose
 sanitized diagnostics.
 
-The collapsed **Advanced** section contains only optional loopback HTTP
-Start/Stop, Remove managed configuration, Rollback when a backup exists, and
-Copy Diagnostics. Opening the window, refreshing status, or previewing a plan
-never mutates files or starts processes.
+The collapsed **Diagnostics and recovery** section contains managed removal,
+rollback, and sanitized diagnostics. HTTP lifecycle controls remain visible in
+the primary server card. Opening the window, refreshing status, or previewing
+a plan never mutates files or starts processes.
 
 Pipeline `0.4.0-exp.1` and the native Unity CLI each show a compact
 **Install** action only when missing. Both require confirmation. Pipeline uses
@@ -281,8 +285,9 @@ Optional HTTP binds only to `127.0.0.1`, validates Host and Origin, and accepts
 a capability stored in a protected local file. Each Editor owns an independent
 lease; closing one cannot stop sessions owned by another Editor.
 
-Advanced prevents duplicate startup and reports sanitized failures. HTTP stops
-ten seconds after the last live lease unless keep-alive is enabled.
+The primary MCP Server control prevents duplicate startup and reports
+sanitized failures. HTTP stops ten seconds after the last live lease unless
+keep-alive is enabled.
 
 For an automatically assigned HTTP port, start the broker first, refresh until
 the actual endpoint is visible, then preview and apply agent registrations. A

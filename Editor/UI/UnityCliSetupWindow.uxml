@@ -13,35 +13,9 @@
                 </ui:VisualElement>
             </ui:VisualElement>
 
-            <ui:VisualElement class="architecture-strip">
-                <ui:VisualElement class="architecture-step">
-                    <ui:Label text="1" class="step-number" />
-                    <ui:VisualElement class="step-copy">
-                        <ui:Label text="Global Agent Registration" class="step-title" />
-                        <ui:Label text="Each supported agent has one unity_cli_mcp registration." class="step-detail" />
-                    </ui:VisualElement>
-                </ui:VisualElement>
-                <ui:Label text="→" class="architecture-arrow" />
-                <ui:VisualElement class="architecture-step">
-                    <ui:Label text="2" class="step-number" />
-                    <ui:VisualElement class="step-copy">
-                        <ui:Label text="Shared HTTP Broker" class="step-title" />
-                        <ui:Label text="The broker routes tools to the selected live Editor." class="step-detail" />
-                    </ui:VisualElement>
-                </ui:VisualElement>
-                <ui:Label text="→" class="architecture-arrow" />
-                <ui:VisualElement class="architecture-step">
-                    <ui:Label text="3" class="step-number" />
-                    <ui:VisualElement class="step-copy">
-                        <ui:Label text="Dynamic Editor Publication" class="step-title" />
-                        <ui:Label text="Editors publish heartbeats and disappear when they close." class="step-detail" />
-                    </ui:VisualElement>
-                </ui:VisualElement>
-            </ui:VisualElement>
-
             <ui:VisualElement class="section">
                 <ui:Label text="Overview" class="section-title" />
-                <ui:Label text="Opening this window is read-only. Preview before Apply, Repair, Remove, or Rollback changes managed state." class="section-description" />
+                <ui:Label text="Install the required components, then start the server or connect an agent." class="section-description" />
                 <ui:VisualElement class="environment-grid">
                     <ui:VisualElement name="cli-card" class="environment-card">
                         <ui:VisualElement class="status-header">
@@ -51,7 +25,7 @@
                         <ui:Label name="cli-version" text="Checking…" class="card-value" />
                         <ui:Label name="cli-detail" text="" class="card-detail" />
                         <ui:VisualElement class="card-actions">
-                            <ui:Button name="install-cli" text="Install" class="button-link" />
+                            <ui:Button name="install-cli" text="Install" class="button-install" />
                             <ui:Button name="copy-cli-command" text="Copy command" class="button-link install-fallback" />
                             <ui:Button name="open-cli-docs" text="Documentation" class="button-link" />
                         </ui:VisualElement>
@@ -72,45 +46,65 @@
                         </ui:VisualElement>
                         <ui:Label name="pipeline-version" text="Checking…" class="card-value" />
                         <ui:Label name="pipeline-detail" text="" class="card-detail" />
-                        <ui:Button name="install-pipeline" text="Install" class="button-link" />
-                    </ui:VisualElement>
-                    <ui:VisualElement name="server-card" class="environment-card">
-                        <ui:VisualElement class="status-header">
-                            <ui:Label text="Broker bundle" class="card-title" />
-                            <ui:Label name="server-status" text="Warning" class="status-pill" />
-                        </ui:VisualElement>
-                        <ui:Label name="server-version" text="Checking…" class="card-value" />
-                        <ui:Label name="server-detail" text="" class="card-detail" />
+                        <ui:Button name="install-pipeline" text="Install" class="button-install" />
                     </ui:VisualElement>
                 </ui:VisualElement>
+            </ui:VisualElement>
+
+            <ui:VisualElement name="server-section" class="section server-section">
+                <ui:VisualElement class="server-heading">
+                    <ui:VisualElement>
+                        <ui:Label text="MCP Server" class="section-title server-section-title" />
+                        <ui:Label text="The server connects agents to every open Unity project." class="section-description server-section-description" />
+                    </ui:VisualElement>
+                    <ui:Label name="broker-state" text="Stopped" class="server-status-badge server-status-stopped" />
+                </ui:VisualElement>
+                <ui:VisualElement class="server-control-card">
+                    <ui:VisualElement name="server-lamp" class="server-lamp server-lamp-stopped" />
+                    <ui:VisualElement class="server-control-copy">
+                        <ui:Label name="server-primary-title" text="HTTP server is stopped" class="server-primary-title" />
+                        <ui:Label name="http-status" text="stdio remains available and starts automatically when an agent connects." class="server-primary-detail" />
+                    </ui:VisualElement>
+                    <ui:Button name="http-action" text="Start HTTP server" class="button-server-start" />
+                </ui:VisualElement>
+                <ui:VisualElement class="server-summary">
+                    <ui:VisualElement class="server-summary-item">
+                        <ui:Label text="Transport" class="detail-label" />
+                        <ui:Label name="server-transport-value" text="stdio · agent managed" class="server-summary-value" />
+                    </ui:VisualElement>
+                    <ui:VisualElement class="server-summary-item">
+                        <ui:Label text="Endpoint" class="detail-label" />
+                        <ui:Label name="broker-port" text="Starts automatically" class="server-summary-value" />
+                    </ui:VisualElement>
+                    <ui:VisualElement class="server-summary-item">
+                        <ui:Label text="Projects" class="detail-label" />
+                        <ui:Label name="broker-lease-count" text="0 connected" class="server-summary-value" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
+                <ui:Foldout name="http-options" text="HTTP options" value="false" class="server-options">
+                    <uie:IntegerField name="http-port" label="Preferred port (0 = automatic)" value="0" />
+                    <ui:Label text="HTTP listens only on 127.0.0.1 and stops after the last owning Editor closes." class="card-detail" />
+                </ui:Foldout>
             </ui:VisualElement>
 
             <ui:VisualElement class="section">
                 <ui:VisualElement class="section-heading-row">
                     <ui:VisualElement class="section-heading-copy">
                         <ui:Label text="This Editor" class="section-title" />
-                        <ui:Label text="Dynamic Editor Publication · read-only live identity and routing state" class="eyebrow" />
+                        <ui:Label text="Connection to this Unity project" class="eyebrow" />
                     </ui:VisualElement>
                     <ui:Label name="this-editor-state" text="No Editor" class="status-pill state-neutral" />
                 </ui:VisualElement>
                 <ui:VisualElement class="details-grid">
                     <ui:VisualElement class="detail-cell">
-                        <ui:Label text="Project ID" class="detail-label" />
-                        <ui:Label name="this-project-id" text="Unavailable" class="detail-value selectable-value" />
+                        <ui:Label text="Project" class="detail-label" />
+                        <ui:Label name="this-project-name" text="Checking…" class="detail-value" />
                     </ui:VisualElement>
                     <ui:VisualElement class="detail-cell">
-                        <ui:Label text="Editor instance ID" class="detail-label" />
-                        <ui:Label name="this-editor-instance-id" text="Unavailable" class="detail-value selectable-value" />
-                    </ui:VisualElement>
-                    <ui:VisualElement class="detail-cell">
-                        <ui:Label text="Connection state" class="detail-label" />
+                        <ui:Label text="Editor tools" class="detail-label" />
                         <ui:Label name="this-connection-state" text="Not published" class="detail-value" />
                     </ui:VisualElement>
                     <ui:VisualElement class="detail-cell">
-                        <ui:Label text="Last heartbeat" class="detail-label" />
-                        <ui:Label name="this-heartbeat" text="Unavailable" class="detail-value" />
-                    </ui:VisualElement>
-                    <ui:VisualElement class="detail-cell detail-cell-wide">
                         <ui:Label text="Pipeline" class="detail-label" />
                         <ui:Label name="this-pipeline" text="Checking…" class="detail-value" />
                     </ui:VisualElement>
@@ -136,35 +130,9 @@
 
             <ui:VisualElement class="section">
                 <ui:Label text="Agent Integration" class="section-title" />
-                <ui:Label text="Global Agent Registration · one unity_cli_mcp entry per client, shared across Unity projects." class="section-description" />
-                <ui:VisualElement class="registration-banner">
-                    <ui:VisualElement>
-                        <ui:Label text="Managed server name" class="detail-label" />
-                        <ui:Label name="global-server-name" text="unity_cli_mcp" class="registration-name" />
-                    </ui:VisualElement>
-                    <ui:Label text="Global · not per-project" class="status-pill status-info" />
-                </ui:VisualElement>
+                <ui:Label text="Enable MCP for the agents that should control your Unity projects." class="section-description" />
+                <ui:Label name="global-server-name" text="unity_cli_mcp" class="hidden-technical-value" />
                 <ui:VisualElement name="agents-container" class="agents-grid" />
-            </ui:VisualElement>
-
-            <ui:VisualElement class="section">
-                <ui:Label text="Shared HTTP Broker" class="section-title" />
-                <ui:Label text="A single loopback broker is shared by all live Editor leases." class="section-description" />
-                <ui:VisualElement class="broker-card">
-                    <ui:VisualElement class="broker-metric">
-                        <ui:Label text="Port" class="detail-label" />
-                        <ui:Label name="broker-port" text="Automatic" class="metric-value" />
-                    </ui:VisualElement>
-                    <ui:VisualElement class="broker-metric">
-                        <ui:Label text="Live leases" class="detail-label" />
-                        <ui:Label name="broker-lease-count" text="0" class="metric-value" />
-                    </ui:VisualElement>
-                    <ui:VisualElement class="broker-policy">
-                        <ui:Label text="Lifetime policy" class="detail-label" />
-                        <ui:Label name="broker-policy" text="Stops after the last Editor closes." class="detail-value" />
-                    </ui:VisualElement>
-                    <ui:Label name="broker-state" text="Stopped" class="status-pill state-neutral" />
-                </ui:VisualElement>
             </ui:VisualElement>
 
             <ui:VisualElement class="section options-section">
@@ -202,17 +170,8 @@
                 <ui:VisualElement name="restart-container" class="restart-container" />
             </ui:VisualElement>
 
-            <ui:Foldout name="advanced-foldout" text="Server and Diagnostics" value="false" class="advanced">
-                <ui:Label text="Advanced broker controls and managed-state recovery. Destructive actions always require confirmation." class="section-description" />
-                <ui:VisualElement class="advanced-group">
-                    <ui:Label text="Server transport" class="card-title" />
-                    <ui:Toggle name="http-transport" label="Use shared loopback Streamable HTTP" />
-                    <uie:IntegerField name="http-port" label="Preferred HTTP port (0 = automatic)" value="0" />
-                    <ui:VisualElement class="advanced-row">
-                        <ui:Label name="http-status" text="Stopped — stdio remains available." class="advanced-status" />
-                        <ui:Button name="http-action" text="Start" class="button-secondary" />
-                    </ui:VisualElement>
-                </ui:VisualElement>
+            <ui:Foldout name="advanced-foldout" text="Diagnostics and recovery" value="false" class="advanced">
+                <ui:Label text="Managed-state recovery and sanitized technical diagnostics." class="section-description" />
                 <ui:VisualElement class="advanced-group">
                     <ui:Label text="Managed state" class="card-title" />
                     <ui:Label text="Remove touches only toolkit-managed registrations and skill copies. Rollback restores the latest backup." class="card-detail" />

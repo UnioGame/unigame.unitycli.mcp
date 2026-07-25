@@ -80,10 +80,12 @@ namespace UniGame.UnityCli.Editor
         private Label _resultDetails;
         private VisualElement _restartContainer;
         private Foldout _advancedFoldout;
-        private Toggle _httpToggle;
         private IntegerField _httpPortField;
         private Label _httpStatus;
         private Button _httpActionButton;
+        private VisualElement _serverLamp;
+        private Label _serverPrimaryTitle;
+        private Label _serverTransportValue;
         private Button _removeButton;
         private Button _rollbackButton;
         private VisualElement _diagnosticsPanel;
@@ -92,10 +94,8 @@ namespace UniGame.UnityCli.Editor
         private Button _copyCliCommandButton;
         private Button _installPipelineButton;
         private Label _thisEditorState;
-        private Label _thisProjectId;
-        private Label _thisEditorInstanceId;
+        private Label _thisProjectName;
         private Label _thisConnectionState;
-        private Label _thisHeartbeat;
         private Label _thisPipeline;
         private VisualElement _thisEditorNotices;
         private Label _activeEditorsCount;
@@ -170,10 +170,12 @@ namespace UniGame.UnityCli.Editor
             _resultDetails = rootVisualElement.Q<Label>("result-details");
             _restartContainer = rootVisualElement.Q<VisualElement>("restart-container");
             _advancedFoldout = rootVisualElement.Q<Foldout>("advanced-foldout");
-            _httpToggle = rootVisualElement.Q<Toggle>("http-transport");
             _httpPortField = rootVisualElement.Q<IntegerField>("http-port");
             _httpStatus = rootVisualElement.Q<Label>("http-status");
             _httpActionButton = rootVisualElement.Q<Button>("http-action");
+            _serverLamp = rootVisualElement.Q<VisualElement>("server-lamp");
+            _serverPrimaryTitle = rootVisualElement.Q<Label>("server-primary-title");
+            _serverTransportValue = rootVisualElement.Q<Label>("server-transport-value");
             _removeButton = rootVisualElement.Q<Button>("remove-configuration");
             _rollbackButton = rootVisualElement.Q<Button>("rollback-configuration");
             _diagnosticsPanel = rootVisualElement.Q<VisualElement>("diagnostics-panel");
@@ -182,10 +184,8 @@ namespace UniGame.UnityCli.Editor
             _copyCliCommandButton = rootVisualElement.Q<Button>("copy-cli-command");
             _installPipelineButton = rootVisualElement.Q<Button>("install-pipeline");
             _thisEditorState = rootVisualElement.Q<Label>("this-editor-state");
-            _thisProjectId = rootVisualElement.Q<Label>("this-project-id");
-            _thisEditorInstanceId = rootVisualElement.Q<Label>("this-editor-instance-id");
+            _thisProjectName = rootVisualElement.Q<Label>("this-project-name");
             _thisConnectionState = rootVisualElement.Q<Label>("this-connection-state");
-            _thisHeartbeat = rootVisualElement.Q<Label>("this-heartbeat");
             _thisPipeline = rootVisualElement.Q<Label>("this-pipeline");
             _thisEditorNotices = rootVisualElement.Q<VisualElement>("this-editor-notices");
             _activeEditorsCount = rootVisualElement.Q<Label>("active-editors-count");
@@ -232,12 +232,6 @@ namespace UniGame.UnityCli.Editor
             _installSkillToggle.RegisterValueChangedCallback(evt =>
             {
                 _presenter.InstallSkill = evt.newValue;
-                SavePreferences();
-                ConfigurationChanged();
-            });
-            _httpToggle.RegisterValueChangedCallback(evt =>
-            {
-                _presenter.UseHttp = evt.newValue;
                 SavePreferences();
                 ConfigurationChanged();
             });
@@ -313,7 +307,6 @@ namespace UniGame.UnityCli.Editor
             _presenter.InitializeAgents(Array.Empty<UnityCliAgentStatus>(), selectionExists, saved);
 
             _installSkillToggle.SetValueWithoutNotify(_presenter.InstallSkill);
-            _httpToggle.SetValueWithoutNotify(_presenter.UseHttp);
             _httpPortField.SetValueWithoutNotify(_presenter.HttpPort);
             SyncAgentToggles();
         }
@@ -446,6 +439,8 @@ namespace UniGame.UnityCli.Editor
             RenderAgentStates();
             if (response.data?.http != null && response.data.http.port > 0)
                 _presenter.HttpPort = response.data.http.port;
+            if (response.data?.http?.alive == true)
+                _presenter.UseHttp = true;
         }
 
         private void AcceptResponse(
@@ -518,6 +513,12 @@ namespace UniGame.UnityCli.Editor
         private void ShowSuccess(UnityCliSetupResponse response, string operation)
         {
             _probe = response;
+            if (string.Equals(operation, "serve", StringComparison.Ordinal))
+            {
+                _presenter.UseHttp = response.data?.http?.alive == true;
+                _presenter.InvalidatePreview();
+                SavePreferences();
+            }
             _resultPanel.RemoveFromClassList("result-error");
             _resultPanel.AddToClassList("result-success");
             _resultTitle.text = string.Equals(operation, "repair", StringComparison.Ordinal)
@@ -696,10 +697,7 @@ namespace UniGame.UnityCli.Editor
                 _nodePath, _nodeVersion, _cliPath, _setupPath));
             _refreshButton.SetEnabled(!_presenter.Busy);
             _installSkillToggle.SetEnabled(!_presenter.Busy);
-            _httpToggle.SetEnabled(!_presenter.Busy);
-            _httpPortField.SetEnabled(!_presenter.Busy && _presenter.UseHttp);
-            _httpPortField.style.display =
-                _presenter.UseHttp ? DisplayStyle.Flex : DisplayStyle.None;
+            _httpPortField.SetEnabled(!_presenter.Busy && !IsHttpRunning());
             foreach (var pair in _agentToggles)
                 pair.Value.SetEnabled(
                     !_presenter.Busy && _presenter.CanToggleAgent(pair.Key));
@@ -711,11 +709,7 @@ namespace UniGame.UnityCli.Editor
                 ? DisplayStyle.None
                 : DisplayStyle.Flex;
             _rollbackButton.SetEnabled(!_presenter.Busy);
-            _httpActionButton.text = IsHttpRunning() ? "Stop" : "Start";
-            _httpActionButton.SetEnabled(!_presenter.Busy && _presenter.UseHttp);
-            _httpStatus.text = IsHttpRunning()
-                ? $"Running on 127.0.0.1:{_probe.data.http.port}"
-                : "Stopped — stdio remains available.";
+            RenderServerControl();
             RenderAgentStates();
             _diagnosticsField.value = BuildDiagnostics();
         }
@@ -768,22 +762,6 @@ namespace UniGame.UnityCli.Editor
                 string.IsNullOrEmpty(_pipelineVersion) ? DisplayStyle.Flex : DisplayStyle.None;
             _installPipelineButton.SetEnabled(!_presenter.Busy);
 
-            var setupReady = File.Exists(_setupPath);
-            var serverReady = _probe?.data?.serverInstalled == true ||
-                              _probe?.data?.serverExists == true;
-            SetEnvironmentCard(
-                "server",
-                !setupReady
-                    ? UnityCliEnvironmentState.Error
-                    : serverReady
-                        ? UnityCliEnvironmentState.Ready
-                        : UnityCliEnvironmentState.Warning,
-                !setupReady ? "Bundle missing" : serverReady ? "Installed" : "Ready to install",
-                !setupReady
-                    ? "Reinstall or repair the UPM package."
-                    : serverReady
-                        ? "Shared dynamic broker bundle is installed."
-                        : "Installed during confirmed Apply.");
         }
 
         private void SetEnvironmentCard(
@@ -817,12 +795,12 @@ namespace UniGame.UnityCli.Editor
                             (current != null || data?.editor?.connected == true);
             var connectionState = current?.connection_state ?? data?.editor?.status;
 
-            _thisProjectId.text = ValueOrUnavailable(current?.project_id);
-            _thisEditorInstanceId.text = ValueOrUnavailable(current?.editor_instance_id);
+            _thisProjectName.text = ValueOr(
+                current?.project_name,
+                new DirectoryInfo(UnityCliSetupBridge.ProjectPath()).Name);
             _thisConnectionState.text = ValueOr(
                 connectionState,
                 connected ? "Published" : "Not published");
-            _thisHeartbeat.text = ValueOrUnavailable(current?.heartbeat_at_utc);
             _thisPipeline.text = !string.IsNullOrWhiteSpace(current?.pipeline_version)
                 ? $"{current.pipeline_version} · published by this Editor"
                 : string.IsNullOrWhiteSpace(_pipelineVersion)
@@ -843,17 +821,12 @@ namespace UniGame.UnityCli.Editor
 
             RenderActiveEditors(editors, registry);
 
-            var brokerPort = data?.http?.port ?? 0;
             var leases = Math.Max(
                 data?.live_lease_count ?? 0,
                 data?.lease_count ?? 0);
             if (leases == 0 && editors.Length > 0)
                 leases = editors.Length;
-            var brokerAlive = data?.http?.alive == true;
-            var brokerStatus = brokerAlive ? "Running" : "Stopped";
-            _brokerPort.text = brokerPort > 0 ? brokerPort.ToString() : "Automatic";
-            _brokerLeaseCount.text = Math.Max(0, leases).ToString();
-            SetStatusPill(_brokerState, brokerStatus, StateClass(brokerStatus, brokerAlive));
+            _brokerLeaseCount.text = $"{Math.Max(0, leases)} connected";
             _globalServerName.text = "unity_cli_mcp";
         }
 
@@ -872,13 +845,9 @@ namespace UniGame.UnityCli.Editor
             foreach (var editor in editors)
                 _activeEditorsContainer.Add(CreateEditorCard(editor));
 
-            if (editors.Count == 0)
+            if (editors.Count > 1)
                 _activeEditorsNotices.Add(CreateNotice(
-                    "No Editor is currently published. Agent registration can still remain globally installed.",
-                    "notice-info"));
-            else if (editors.Count > 1)
-                _activeEditorsNotices.Add(CreateNotice(
-                    $"{editors.Count} Editors are active. Tool calls must resolve a project or Editor instance.",
+                    $"{editors.Count} Unity projects are available to agents.",
                     "notice-info"));
 
             var duplicateIds = editors
@@ -940,11 +909,80 @@ namespace UniGame.UnityCli.Editor
                 meta,
                 "Unity",
                 editor.editor_version);
-            AddEditorMeta(meta, "Editor PID", editor.editor_pid.ToString());
-            AddEditorMeta(meta, "Heartbeat", editor.heartbeat_at_utc);
             AddEditorMeta(meta, "Tools", editor.tool_count.ToString());
             card.Add(meta);
             return card;
+        }
+
+        private void RenderServerControl()
+        {
+            var running = IsHttpRunning();
+            var httpSelectedButStopped = _presenter.UseHttp && !running;
+            var runtimeReady =
+                File.Exists(_nodePath) &&
+                UnityCliSetupPresenter.IsSupportedNode(_nodeVersion) &&
+                File.Exists(_setupPath);
+            var bundleInstalled =
+                _probe?.data?.serverInstalled == true ||
+                _probe?.data?.serverExists == true;
+            var serverAvailable = running || (runtimeReady && bundleInstalled);
+            var ready = running || (serverAvailable && !httpSelectedButStopped);
+
+            _serverLamp.EnableInClassList("server-lamp-running", ready);
+            _serverLamp.EnableInClassList("server-lamp-warning", httpSelectedButStopped);
+            _serverLamp.EnableInClassList(
+                "server-lamp-stopped",
+                !ready && !httpSelectedButStopped);
+            _brokerState.EnableInClassList("server-status-running", ready);
+            _brokerState.EnableInClassList("server-status-warning", httpSelectedButStopped);
+            _brokerState.EnableInClassList(
+                "server-status-stopped",
+                !ready && !httpSelectedButStopped);
+            _httpActionButton.EnableInClassList("button-server-stop", running);
+            _httpActionButton.EnableInClassList("button-server-start", !running);
+
+            if (running)
+            {
+                _brokerState.text = "HTTP RUNNING";
+                _serverPrimaryTitle.text = "HTTP server is running";
+                _httpStatus.text =
+                    $"Agents can connect through 127.0.0.1:{_probe.data.http.port}.";
+                _serverTransportValue.text = "HTTP · loopback";
+                _brokerPort.text = $"127.0.0.1:{_probe.data.http.port}";
+                _httpActionButton.text = "Stop HTTP server";
+            }
+            else if (httpSelectedButStopped)
+            {
+                _brokerState.text = "HTTP STOPPED";
+                _serverPrimaryTitle.text = "HTTP server needs to be started";
+                _httpStatus.text =
+                    "The HTTP transport is selected, but no server is accepting connections.";
+                _serverTransportValue.text = "HTTP · selected";
+                _brokerPort.text = "Not running";
+                _httpActionButton.text = "Start HTTP server";
+            }
+            else if (serverAvailable)
+            {
+                _brokerState.text = "STDIO READY";
+                _serverPrimaryTitle.text = "Ready for agent connections";
+                _httpStatus.text =
+                    "stdio starts automatically when an agent connects. Start HTTP only when a shared endpoint is needed.";
+                _serverTransportValue.text = "stdio · automatic";
+                _brokerPort.text = "Agent managed";
+                _httpActionButton.text = "Start HTTP server";
+            }
+            else
+            {
+                _brokerState.text = "NOT READY";
+                _serverPrimaryTitle.text = "Server prerequisites are missing";
+                _httpStatus.text =
+                    "Install Node and complete the managed configuration first.";
+                _serverTransportValue.text = "Unavailable";
+                _brokerPort.text = "Unavailable";
+                _httpActionButton.text = "Start HTTP server";
+            }
+
+            _httpActionButton.SetEnabled(!_presenter.Busy && serverAvailable);
         }
 
         private static void AddEditorMeta(VisualElement parent, string label, string value)
