@@ -26,6 +26,7 @@ export interface SetupRequest {
   homePath?: string;
   dataPath?: string;
   agents?: AgentId[];
+  disabledAgents?: AgentId[];
   transport?: TransportName;
   confirm?: boolean;
   force?: boolean;
@@ -74,4 +75,6 @@ export interface AgentRegistration {
   format: "json" | "jsonc" | "toml" | "dxt";
   key: "mcpServers" | "servers";
   restartRequired: boolean;
+  configured?: boolean;
+  conflict?: boolean;
 }

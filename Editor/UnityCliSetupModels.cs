@@ -12,6 +12,7 @@ namespace UniGame.UnityCli.Editor
         public string projectPath;
         public string packageRoot;
         public string[] agents;
+        public string[] disabledAgents;
         public string transport;
         public bool confirm;
         public bool force;
@@ -128,6 +129,8 @@ namespace UniGame.UnityCli.Editor
         public string format;
         public string key;
         public bool restartRequired;
+        public bool configured;
+        public bool conflict;
     }
 
     [Serializable]
@@ -169,6 +172,8 @@ namespace UniGame.UnityCli.Editor
 
         private readonly HashSet<string> _selectedAgents =
             new HashSet<string>(StringComparer.Ordinal);
+        private readonly Dictionary<string, UnityCliAgentStatus> _agentStatuses =
+            new Dictionary<string, UnityCliAgentStatus>(StringComparer.Ordinal);
 
         public bool Busy { get; private set; }
         public bool PreviewReady { get; private set; }
@@ -180,6 +185,10 @@ namespace UniGame.UnityCli.Editor
         public string LastBackup { get; private set; } = string.Empty;
         public UnityCliSetupResponse LastResponse { get; private set; }
         public IReadOnlyCollection<string> SelectedAgents => _selectedAgents;
+        public IReadOnlyCollection<string> DisabledAgents => _agentStatuses.Values
+            .Where(status => status.configured && !_selectedAgents.Contains(status.id))
+            .Select(status => status.id)
+            .ToArray();
 
         public bool CanReview(
             string nodePath,
@@ -192,7 +201,7 @@ namespace UniGame.UnityCli.Editor
                    IsSupportedNode(nodeVersion) &&
                    !string.IsNullOrEmpty(cliPath) &&
                    !string.IsNullOrEmpty(setupPath) &&
-                   _selectedAgents.Count > 0;
+                   (_selectedAgents.Count > 0 || DisabledAgents.Count > 0);
         }
 
         public bool CanApply(
@@ -210,10 +219,12 @@ namespace UniGame.UnityCli.Editor
             IEnumerable<string> savedSelection)
         {
             _selectedAgents.Clear();
+            UpdateAgentStatuses(agents);
             if (preferencesExist)
             {
                 foreach (var id in savedSelection ?? Array.Empty<string>())
-                    if (SupportedAgentIds.Contains(id))
+                    if (SupportedAgentIds.Contains(id) &&
+                        (_agentStatuses.Count == 0 || CanToggleAgent(id)))
                         _selectedAgents.Add(id);
                 return;
             }
@@ -221,6 +232,21 @@ namespace UniGame.UnityCli.Editor
             foreach (var agent in agents ?? Array.Empty<UnityCliAgentStatus>())
                 if (agent != null && agent.installed && SupportedAgentIds.Contains(agent.id))
                     _selectedAgents.Add(agent.id);
+        }
+
+        public void UpdateAgentStatuses(IEnumerable<UnityCliAgentStatus> agents)
+        {
+            _agentStatuses.Clear();
+            foreach (var agent in agents ?? Array.Empty<UnityCliAgentStatus>())
+            {
+                if (agent == null || !SupportedAgentIds.Contains(agent.id))
+                    continue;
+                _agentStatuses[agent.id] = agent;
+            }
+
+            _selectedAgents.RemoveWhere(id =>
+                !_agentStatuses.TryGetValue(id, out var status) ||
+                (!status.installed && !status.configured));
         }
 
         public void SetAgentSelected(string id, bool selected)
@@ -235,6 +261,38 @@ namespace UniGame.UnityCli.Editor
         public bool IsAgentSelected(string id)
         {
             return _selectedAgents.Contains(id);
+        }
+
+        public bool CanToggleAgent(string id)
+        {
+            return _agentStatuses.TryGetValue(id, out var status) &&
+                   (status.installed || status.configured);
+        }
+
+        public string AgentDetection(string id)
+        {
+            return _agentStatuses.TryGetValue(id, out var status) && status.installed
+                ? "Found"
+                : "Missing";
+        }
+
+        public string AgentIntegration(string id)
+        {
+            if (!_agentStatuses.TryGetValue(id, out var status))
+                return "Off";
+            if (status.conflict)
+                return "Conflict";
+            var selected = _selectedAgents.Contains(id);
+            if (selected && !status.configured)
+                return "Pending On";
+            if (!selected && status.configured)
+                return "Pending Off";
+            return status.configured ? "On" : "Off";
+        }
+
+        public string AgentToggleValue(string id)
+        {
+            return _selectedAgents.Contains(id) ? "On" : "Off";
         }
 
         public void SetBusy(bool busy)

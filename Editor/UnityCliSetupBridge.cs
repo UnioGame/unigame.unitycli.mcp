@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using UnityEditor;
 using UnityEditor.PackageManager;
 using UnityEngine;
@@ -194,9 +195,26 @@ namespace UniGame.UnityCli.Editor
         {
             if (string.IsNullOrEmpty(value))
                 return string.Empty;
-            return value
+            var sanitized = value
                 .Replace(Environment.GetEnvironmentVariable("UNITY_ACCESS_TOKEN") ?? "\0", "[REDACTED]")
                 .Replace(Environment.GetEnvironmentVariable("UNITY_SERIAL") ?? "\0", "[REDACTED]");
+            sanitized = Regex.Replace(
+                sanitized,
+                @"(?i)(bearer\s+)[a-z0-9._~+/=-]+",
+                "$1[REDACTED]");
+            sanitized = Regex.Replace(
+                sanitized,
+                @"(?i)\b(token|password|secret|serial)\b(\s*[:=]\s*)[""']?[^,\s""']+",
+                "$1$2[REDACTED]");
+            sanitized = Regex.Replace(
+                sanitized,
+                @"(?i)(https?://)[^/\s:@]+:[^/\s@]+@",
+                "$1[REDACTED]@");
+            return Regex.Replace(
+                sanitized,
+                @"\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b",
+                "[REDACTED]",
+                RegexOptions.IgnoreCase);
         }
 
         private static string Escape(string value)

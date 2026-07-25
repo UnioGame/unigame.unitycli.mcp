@@ -174,6 +174,15 @@
     color: var(--unity-colors-link);
 }
 
+.card-actions {
+    flex-direction: row;
+    align-items: center;
+}
+
+.install-fallback {
+    display: none;
+}
+
 .agent-row {
     min-width: 280px;
     flex-basis: 45%;
@@ -187,8 +196,19 @@
     border-radius: 3px;
 }
 
+.agent-name {
+    min-width: 112px;
+    -unity-font-style: bold;
+}
+
+.agent-controls {
+    flex-direction: row;
+    align-items: center;
+}
+
 .agent-toggle {
-    flex-grow: 1;
+    margin-left: 8px;
+    margin-right: 4px;
 }
 
 .agent-detection {
@@ -196,8 +216,30 @@
     font-size: 10px;
 }
 
-.agent-detected {
+.agent-found,
+.agent-on {
     color: rgb(75, 190, 121);
+}
+
+.agent-integration {
+    min-width: 72px;
+    margin-left: 8px;
+    font-size: 10px;
+    -unity-font-style: bold;
+}
+
+.agent-pending {
+    color: rgb(72, 158, 222);
+}
+
+.agent-conflict {
+    color: rgb(230, 170, 57);
+}
+
+.agent-toggle-value {
+    min-width: 20px;
+    font-size: 10px;
+    -unity-font-style: bold;
 }
 
 .option-toggle {

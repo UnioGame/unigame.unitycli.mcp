@@ -139,4 +139,125 @@ describe("setup manager", () => {
     expect(result.ok).toBe(false);
     expect(result.errors).toContain("CONFIRMATION_REQUIRED");
   });
+
+  it("plans and applies mixed enable and disable state", async () => {
+    const paths = await fixture();
+    const base = {
+      projectPath: paths.projectPath,
+      packageRoot,
+      homePath: paths.homePath,
+      dataPath: paths.dataPath,
+      installServer: true,
+      installSkill: false,
+    };
+    const initial = await executeSetup({
+      operation: "apply",
+      ...base,
+      agents: ["codex", "cursor"],
+      confirm: true,
+    });
+    expect(initial.ok, initial.errors.join("\n")).toBe(true);
+
+    const plan = await executeSetup({
+      operation: "plan",
+      ...base,
+      agents: ["cursor"],
+      disabledAgents: ["codex"],
+    });
+    expect(plan.ok).toBe(true);
+    expect(plan.changes).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ agent: "cursor" }),
+        expect.objectContaining({ agent: "codex", kind: "remove" }),
+      ]),
+    );
+
+    const apply = await executeSetup({
+      operation: "apply",
+      ...base,
+      agents: ["cursor"],
+      disabledAgents: ["codex"],
+      confirm: true,
+    });
+    expect(apply.ok, apply.errors.join("\n")).toBe(true);
+    const codex = await readFile(join(paths.homePath, ".codex", "config.toml"), "utf8");
+    const cursor = await readFile(join(paths.homePath, ".cursor", "mcp.json"), "utf8");
+    expect(codex).not.toContain(projectServerName(paths.projectPath));
+    expect(cursor).toContain(projectServerName(paths.projectPath));
+  });
+
+  it("reports configured and conflict state in probe", async () => {
+    const paths = await fixture();
+    const base = {
+      projectPath: paths.projectPath,
+      packageRoot,
+      homePath: paths.homePath,
+      dataPath: paths.dataPath,
+      installServer: true,
+      installSkill: false,
+    };
+    await executeSetup({
+      operation: "apply",
+      ...base,
+      agents: ["cursor"],
+      confirm: true,
+    });
+    const probe = await executeSetup({ operation: "probe", ...base });
+    const agents = probe.data.agents as Array<{
+      id: string;
+      configured: boolean;
+      conflict: boolean;
+    }>;
+    expect(agents.find((entry) => entry.id === "cursor")).toMatchObject({
+      configured: true,
+      conflict: false,
+    });
+  });
+
+  it("keeps legacy requests enabled-only", async () => {
+    const paths = await fixture();
+    const plan = await executeSetup({
+      operation: "plan",
+      projectPath: paths.projectPath,
+      packageRoot,
+      homePath: paths.homePath,
+      dataPath: paths.dataPath,
+      agents: ["codex"],
+      installServer: false,
+      installSkill: false,
+    });
+    expect(plan.ok).toBe(true);
+    expect(plan.changes.some((change) => change.agent === "codex")).toBe(true);
+    expect(plan.changes.some((change) => change.kind === "remove")).toBe(false);
+  });
+
+  it("restores all managed files when a mixed apply fails", async () => {
+    const paths = await fixture();
+    const skillPath = join(
+      paths.root,
+      "repo",
+      ".agents",
+      "skills",
+      "operate-unity-cli",
+    );
+    await mkdir(skillPath, { recursive: true });
+    await writeFile(join(skillPath, "SKILL.md"), "user-owned");
+    const result = await executeSetup({
+      operation: "apply",
+      projectPath: paths.projectPath,
+      packageRoot,
+      homePath: paths.homePath,
+      dataPath: paths.dataPath,
+      agents: ["cursor"],
+      installServer: true,
+      installSkill: true,
+      confirm: true,
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.errors.some((error) => error.startsWith("SKILL_CONFLICT:"))).toBe(true);
+    const cursorPath = join(paths.homePath, ".cursor", "mcp.json");
+    expect(existsSync(cursorPath)).toBe(false);
+    expect(await readFile(join(skillPath, "SKILL.md"), "utf8")).toBe("user-owned");
+  });
 });

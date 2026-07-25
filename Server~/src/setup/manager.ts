@@ -67,10 +67,20 @@ export async function executeSetup(request: SetupRequest): Promise<SetupResponse
     }
     const backup = await createBackup(context, plan.paths);
     response.backup = backup.id;
-    if (request.operation === "remove") {
-      await removeManaged(context, request, plan.registrations);
-    } else {
-      await applyManaged(context, request, plan.registrations);
+    try {
+      if (request.operation === "remove") {
+        await removeManaged(context, request, plan.registrations);
+      } else {
+        await applyManaged(
+          context,
+          request,
+          plan.enabledRegistrations,
+          plan.disabledRegistrations,
+        );
+      }
+    } catch (error) {
+      await restoreBackup(context, backup.id);
+      throw error;
     }
     response.restartRequired = plan.registrations
       .filter((entry) => entry.restartRequired)
@@ -87,7 +97,13 @@ async function probe(
   context: SetupContext,
   response: SetupResponse,
 ): Promise<SetupResponse> {
-  const registrations = discoverAgents(context);
+  const registrations = await Promise.all(
+    discoverAgents(context).map(async (registration) => ({
+      ...registration,
+      configured: await containsManaged(registration, context),
+      conflict: await hasConflict(registration, context),
+    })),
+  );
   const cliPath = await resolveUnityCli();
   const cliVersion = cliPath
     ? await runProcess(cliPath, ["--version"], { timeoutMs: 5_000 })
@@ -134,9 +150,22 @@ async function probe(
 
 async function buildPlan(context: SetupContext, request: SetupRequest) {
   const selected = request.agents ?? supportedAgents;
-  const registrations = discoverAgents(context).filter((entry) =>
+  const disabled = (request.disabledAgents ?? []).filter(
+    (id) => !selected.includes(id),
+  );
+  const discovered = discoverAgents(context);
+  const enabledRegistrations = discovered.filter((entry) =>
     selected.includes(entry.id),
   );
+  const disabledRegistrations: AgentRegistration[] = [];
+  for (const registration of discovered) {
+    if (disabled.includes(registration.id) && await containsManaged(registration, context))
+      disabledRegistrations.push(registration);
+  }
+  const registrations =
+    request.operation === "remove"
+      ? enabledRegistrations
+      : [...enabledRegistrations, ...disabledRegistrations];
   const changes: PlannedChange[] = [];
   const warnings: string[] = [];
   const paths: string[] = [];
@@ -148,7 +177,7 @@ async function buildPlan(context: SetupContext, request: SetupRequest) {
     });
     paths.push(join(context.installRoot, "current.json"));
   }
-  for (const registration of registrations) {
+  for (const registration of enabledRegistrations) {
     if (!registration.configPath) continue;
     const conflict = await hasConflict(registration, context);
     changes.push({
@@ -166,6 +195,19 @@ async function buildPlan(context: SetupContext, request: SetupRequest) {
     paths.push(registration.configPath);
     paths.push(registrationMarkerPath(context, registration.id));
   }
+  if (request.operation !== "remove") {
+    for (const registration of disabledRegistrations) {
+      if (!registration.configPath) continue;
+      changes.push({
+        kind: "remove",
+        target: registration.configPath,
+        summary: `Disable MCP for ${registration.displayName}.`,
+        agent: registration.id,
+      });
+      paths.push(registration.configPath);
+      paths.push(registrationMarkerPath(context, registration.id));
+    }
+  }
   if (request.installSkill) {
     changes.push({
       kind: request.operation === "remove" ? "remove" : existsSync(skillPath(context)) ? "update" : "create",
@@ -179,24 +221,36 @@ async function buildPlan(context: SetupContext, request: SetupRequest) {
     warnings,
     paths,
     registrations,
-    data: { serverName: context.serverName, projectRoot: context.projectRoot },
+    enabledRegistrations,
+    disabledRegistrations,
+    data: {
+      serverName: context.serverName,
+      projectRoot: context.projectRoot,
+      enabledAgents: enabledRegistrations.map((entry) => entry.id),
+      disabledAgents: disabledRegistrations.map((entry) => entry.id),
+    },
   };
 }
 
 async function applyManaged(
   context: SetupContext,
   request: SetupRequest,
-  registrations: AgentRegistration[],
+  enabledRegistrations: AgentRegistration[],
+  disabledRegistrations: AgentRegistration[],
 ): Promise<void> {
+  for (const registration of enabledRegistrations) {
+    if (registration.configPath &&
+        (await hasConflict(registration, context)) &&
+        !request.force)
+      throw new Error(`CONFLICT:${registration.id}`);
+  }
   if (request.installServer !== false) await installBundle(context);
   const serverPath = installedServer(context);
   const tokenFile = join(context.installRoot, "http-token");
   await ensureToken(tokenFile);
   const state = (await readJson(statePath(context))) as { port?: number } | null;
-  for (const registration of registrations) {
+  for (const registration of enabledRegistrations) {
     if (!registration.configPath) continue;
-    if ((await hasConflict(registration, context)) && !request.force)
-      throw new Error(`CONFLICT:${registration.id}`);
     const value = registrationValue(
       context,
       request.transport ?? "stdio",
@@ -205,6 +259,10 @@ async function applyManaged(
       request.port && request.port > 0 ? request.port : state?.port ?? 0,
     );
     await writeRegistration(registration, context, value);
+  }
+  for (const registration of disabledRegistrations) {
+    if (registration.configPath && await containsManaged(registration, context))
+      await writeRegistration(registration, context, undefined);
   }
   if (request.installSkill) await installSkill(context, Boolean(request.force));
 }
@@ -383,7 +441,21 @@ async function rollback(
 ): Promise<SetupResponse> {
   if (!request.confirm) throw new Error("CONFIRMATION_REQUIRED");
   if (!request.backupId) throw new Error("backupId is required");
-  const root = join(context.installRoot, "backups", request.backupId);
+  const manifest = await restoreBackup(context, request.backupId);
+  response.backup = request.backupId;
+  response.changes = manifest.files.map((file) => ({
+    kind: "update",
+    target: file.source,
+    summary: "Restored from backup.",
+  }));
+  return response;
+}
+
+async function restoreBackup(
+  context: SetupContext,
+  backupId: string,
+): Promise<BackupManifest> {
+  const root = join(context.installRoot, "backups", backupId);
   const manifest = JSON.parse(await readFile(join(root, "manifest.json"), "utf8")) as BackupManifest;
   for (const file of manifest.files) {
     await rm(file.source, { recursive: true, force: true });
@@ -392,13 +464,7 @@ async function rollback(
       await cp(file.backup, file.source, { recursive: true });
     }
   }
-  response.backup = request.backupId;
-  response.changes = manifest.files.map((file) => ({
-    kind: "update",
-    target: file.source,
-    summary: "Restored from backup.",
-  }));
-  return response;
+  return manifest;
 }
 
 async function serve(

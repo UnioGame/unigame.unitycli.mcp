@@ -3,9 +3,11 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using UnityEditor;
 using UnityEditor.PackageManager;
+using UnityEditor.PackageManager.Requests;
 using UnityEditor.UIElements;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -34,12 +36,18 @@ namespace UniGame.UnityCli.Editor
             ("vscode", "VS Code / GitHub Copilot"),
             ("cline", "Cline"),
             ("claude-code", "Claude Code"),
-            ("claude-desktop", "Claude Desktop DXT export"),
+            ("claude-desktop", "Claude Desktop"),
         };
 
         private readonly UnityCliSetupPresenter _presenter = new UnityCliSetupPresenter();
         private readonly Dictionary<string, Toggle> _agentToggles =
             new Dictionary<string, Toggle>(StringComparer.Ordinal);
+        private readonly Dictionary<string, Label> _agentDetections =
+            new Dictionary<string, Label>(StringComparer.Ordinal);
+        private readonly Dictionary<string, Label> _agentToggleValues =
+            new Dictionary<string, Label>(StringComparer.Ordinal);
+        private readonly Dictionary<string, Label> _agentIntegrations =
+            new Dictionary<string, Label>(StringComparer.Ordinal);
 
         private string _cliPath = string.Empty;
         private string _cliVersion = string.Empty;
@@ -50,7 +58,10 @@ namespace UniGame.UnityCli.Editor
         private string _setupPath = string.Empty;
         private string _lastRequest = string.Empty;
         private string _lastResponse = string.Empty;
+        private string _installDiagnostics = string.Empty;
         private UnityCliSetupResponse _probe;
+        private CancellationTokenSource _installerCancellation;
+        private AddRequest _pipelineRequest;
 
         private Label _pageStatus;
         private Button _refreshButton;
@@ -75,6 +86,9 @@ namespace UniGame.UnityCli.Editor
         private Button _rollbackButton;
         private VisualElement _diagnosticsPanel;
         private TextField _diagnosticsField;
+        private Button _installCliButton;
+        private Button _copyCliCommandButton;
+        private Button _installPipelineButton;
 
         [MenuItem("UniGame/Unity CLI MCP")]
         private static void Open()
@@ -111,6 +125,14 @@ namespace UniGame.UnityCli.Editor
             rootVisualElement.schedule.Execute(RefreshAndProbe).ExecuteLater(1);
         }
 
+        private void OnDisable()
+        {
+            _installerCancellation?.Cancel();
+            _installerCancellation?.Dispose();
+            _installerCancellation = null;
+            EditorApplication.update -= PollPipelineInstall;
+        }
+
         private void CacheElements()
         {
             _pageStatus = rootVisualElement.Q<Label>("page-status");
@@ -136,6 +158,9 @@ namespace UniGame.UnityCli.Editor
             _rollbackButton = rootVisualElement.Q<Button>("rollback-configuration");
             _diagnosticsPanel = rootVisualElement.Q<VisualElement>("diagnostics-panel");
             _diagnosticsField = rootVisualElement.Q<TextField>("diagnostics");
+            _installCliButton = rootVisualElement.Q<Button>("install-cli");
+            _copyCliCommandButton = rootVisualElement.Q<Button>("copy-cli-command");
+            _installPipelineButton = rootVisualElement.Q<Button>("install-pipeline");
         }
 
         private void BindEvents()
@@ -146,7 +171,9 @@ namespace UniGame.UnityCli.Editor
             _removeButton.clicked += () => RunOperation("remove", true);
             _rollbackButton.clicked += () => RunOperation("rollback", true);
             _httpActionButton.clicked += ToggleHttp;
-            rootVisualElement.Q<Button>("install-pipeline").clicked += InstallPipeline;
+            _installCliButton.clicked += InstallUnityCli;
+            _copyCliCommandButton.clicked += CopyUnityCliCommand;
+            _installPipelineButton.clicked += InstallPipeline;
             rootVisualElement.Q<Button>("open-cli-docs").clicked +=
                 () => Application.OpenURL("https://docs.unity.com/en-us/unity-cli/unity-cli");
             rootVisualElement.Q<Button>("open-node-docs").clicked +=
@@ -189,25 +216,42 @@ namespace UniGame.UnityCli.Editor
         {
             _agentsContainer.Clear();
             _agentToggles.Clear();
+            _agentDetections.Clear();
+            _agentToggleValues.Clear();
+            _agentIntegrations.Clear();
             foreach (var definition in AgentDefinitions)
             {
                 var row = new VisualElement();
                 row.AddToClassList("agent-row");
-                var toggle = new Toggle(definition.label);
+                var name = new Label(definition.label);
+                name.AddToClassList("agent-name");
+                var controls = new VisualElement();
+                controls.AddToClassList("agent-controls");
+                var detection = new Label("Missing");
+                detection.AddToClassList("agent-detection");
+                var toggle = new Toggle("MCP");
                 toggle.AddToClassList("agent-toggle");
                 toggle.RegisterValueChangedCallback(evt =>
                 {
                     _presenter.SetAgentSelected(definition.id, evt.newValue);
                     SavePreferences();
-                    Render();
+                    ConfigurationChanged();
                 });
-                var status = new Label("Not detected");
-                status.name = $"agent-status-{definition.id}";
-                status.AddToClassList("agent-detection");
-                row.Add(toggle);
-                row.Add(status);
+                var value = new Label("Off");
+                value.AddToClassList("agent-toggle-value");
+                var integration = new Label("Off");
+                integration.AddToClassList("agent-integration");
+                controls.Add(detection);
+                controls.Add(toggle);
+                controls.Add(value);
+                controls.Add(integration);
+                row.Add(name);
+                row.Add(controls);
                 _agentsContainer.Add(row);
                 _agentToggles[definition.id] = toggle;
+                _agentDetections[definition.id] = detection;
+                _agentToggleValues[definition.id] = value;
+                _agentIntegrations[definition.id] = integration;
             }
         }
 
@@ -285,7 +329,12 @@ namespace UniGame.UnityCli.Editor
                 operation = operation,
                 projectPath = UnityCliSetupBridge.ProjectPath(),
                 packageRoot = _packagePath,
-                agents = _presenter.SelectedAgents.OrderBy(id => id).ToArray(),
+                agents = string.Equals(operation, "remove", StringComparison.Ordinal)
+                    ? UnityCliSetupPresenter.SupportedAgentIds
+                    : _presenter.SelectedAgents.OrderBy(id => id).ToArray(),
+                disabledAgents = string.Equals(operation, "remove", StringComparison.Ordinal)
+                    ? Array.Empty<string>()
+                    : _presenter.DisabledAgents.OrderBy(id => id).ToArray(),
                 transport = _presenter.UseHttp ? "http" : "stdio",
                 confirm = confirmation,
                 force = _presenter.ForceVisible && _presenter.Force,
@@ -341,9 +390,14 @@ namespace UniGame.UnityCli.Editor
                     Array.Empty<string>());
                 SavePreferences();
             }
+            else
+            {
+                _presenter.UpdateAgentStatuses(response.data?.agents);
+                SavePreferences();
+            }
 
             SyncAgentToggles();
-            RenderAgentDetection(response.data?.agents);
+            RenderAgentStates();
             if (response.data?.http != null && response.data.http.port > 0)
                 _presenter.HttpPort = response.data.http.port;
         }
@@ -438,8 +492,83 @@ namespace UniGame.UnityCli.Editor
                     "Install",
                     "Cancel"))
                 return;
-            Client.Add($"{PipelinePackageName}@{ExpectedPipelineVersion}");
-            _pageStatus.text = "Pipeline installation requested. Refresh after compilation.";
+            SetBusy(true, "Installing Pipeline");
+            _pipelineRequest = Client.Add($"{PipelinePackageName}@{ExpectedPipelineVersion}");
+            EditorApplication.update -= PollPipelineInstall;
+            EditorApplication.update += PollPipelineInstall;
+        }
+
+        private void PollPipelineInstall()
+        {
+            if (_pipelineRequest == null || !_pipelineRequest.IsCompleted)
+                return;
+            EditorApplication.update -= PollPipelineInstall;
+            var failed = _pipelineRequest.Status == StatusCode.Failure;
+            _installDiagnostics = failed
+                ? UnityCliSetupBridge.Sanitize(_pipelineRequest.Error?.message ?? "Install failed")
+                : string.Empty;
+            _pipelineRequest = null;
+            SetBusy(false, string.Empty);
+            if (failed)
+                ShowInstallFailure();
+            else
+                RefreshAndProbe();
+        }
+
+        private async void InstallUnityCli()
+        {
+            if (_presenter.Busy)
+                return;
+            var spec = UnityCliPlatformInstaller.ForPlatform(Application.platform);
+            if (!EditorUtility.DisplayDialog(
+                    "Install Unity CLI",
+                    $"Platform: {spec.Platform}\nChannel: beta\n\n{spec.Url}",
+                    "Install",
+                    "Cancel"))
+                return;
+
+            _installerCancellation?.Cancel();
+            _installerCancellation?.Dispose();
+            _installerCancellation = new CancellationTokenSource();
+            SetBusy(true, "Installing CLI");
+            var result = await UnityCliPlatformInstaller.Install(
+                spec,
+                _installerCancellation.Token);
+            if (this == null)
+                return;
+            SetBusy(false, string.Empty);
+            _installDiagnostics = string.Join(
+                "\n",
+                new[] { result.Output, result.Error }.Where(value => !string.IsNullOrWhiteSpace(value)));
+            RefreshLocalStatus();
+            if (!result.Ok || string.IsNullOrEmpty(_cliVersion))
+            {
+                ShowInstallFailure();
+                return;
+            }
+
+            _installDiagnostics = string.Empty;
+            RefreshAndProbe();
+        }
+
+        private void CopyUnityCliCommand()
+        {
+            EditorGUIUtility.systemCopyBuffer =
+                UnityCliPlatformInstaller.ForPlatform(Application.platform).Command;
+            ShowNotification(new GUIContent("Command copied"));
+        }
+
+        private void ShowInstallFailure()
+        {
+            _resultPanel.RemoveFromClassList("result-success");
+            _resultPanel.AddToClassList("result-error");
+            _resultTitle.text = "Install failed";
+            _resultDetails.text = "See Advanced.";
+            _restartContainer.Clear();
+            _resultPanel.style.display = DisplayStyle.Flex;
+            _advancedFoldout.value = true;
+            _diagnosticsPanel.style.display = DisplayStyle.Flex;
+            Render();
         }
 
         private void RefreshLocalStatus()
@@ -472,9 +601,7 @@ namespace UniGame.UnityCli.Editor
             var canReview = _presenter.CanReview(
                 _nodePath, _nodeVersion, _cliPath, _setupPath);
             _reviewButton.SetEnabled(canReview);
-            _reviewButton.text = HasManagedState()
-                ? "Review Update"
-                : "Review Configuration";
+            _reviewButton.text = "Review";
             _applyButton.SetEnabled(_presenter.CanApply(
                 _nodePath, _nodeVersion, _cliPath, _setupPath));
             _refreshButton.SetEnabled(!_presenter.Busy);
@@ -483,8 +610,9 @@ namespace UniGame.UnityCli.Editor
             _httpPortField.SetEnabled(!_presenter.Busy && _presenter.UseHttp);
             _httpPortField.style.display =
                 _presenter.UseHttp ? DisplayStyle.Flex : DisplayStyle.None;
-            foreach (var toggle in _agentToggles.Values)
-                toggle.SetEnabled(!_presenter.Busy);
+            foreach (var pair in _agentToggles)
+                pair.Value.SetEnabled(
+                    !_presenter.Busy && _presenter.CanToggleAgent(pair.Key));
 
             _forceToggle.style.display =
                 _presenter.ForceVisible ? DisplayStyle.Flex : DisplayStyle.None;
@@ -493,11 +621,12 @@ namespace UniGame.UnityCli.Editor
                 ? DisplayStyle.None
                 : DisplayStyle.Flex;
             _rollbackButton.SetEnabled(!_presenter.Busy);
-            _httpActionButton.text = IsHttpRunning() ? "Stop HTTP" : "Start HTTP";
+            _httpActionButton.text = IsHttpRunning() ? "Stop" : "Start";
             _httpActionButton.SetEnabled(!_presenter.Busy && _presenter.UseHttp);
             _httpStatus.text = IsHttpRunning()
                 ? $"Running on 127.0.0.1:{_probe.data.http.port}"
                 : "Stopped — stdio remains available.";
+            RenderAgentStates();
             _diagnosticsField.value = BuildDiagnostics();
         }
 
@@ -511,10 +640,17 @@ namespace UniGame.UnityCli.Editor
             SetEnvironmentCard(
                 "cli",
                 cliState,
-                string.IsNullOrEmpty(_cliVersion) ? "Not found" : _cliVersion,
+                string.IsNullOrEmpty(_cliVersion) ? "Missing" : _cliVersion,
                 string.IsNullOrEmpty(_cliPath)
-                    ? "Install Unity CLI or set UNITY_CLI_PATH."
-                    : _cliPath);
+                    ? UnityCliPlatformInstaller.ForPlatform(Application.platform).Platform
+                    : $"{UnityCliPlatformInstaller.ForPlatform(Application.platform).Platform} · {_cliPath}");
+            _installCliButton.style.display =
+                string.IsNullOrEmpty(_cliVersion) ? DisplayStyle.Flex : DisplayStyle.None;
+            _installCliButton.SetEnabled(!_presenter.Busy);
+            _copyCliCommandButton.style.display =
+                string.IsNullOrEmpty(_cliVersion) && !string.IsNullOrEmpty(_installDiagnostics)
+                    ? DisplayStyle.Flex
+                    : DisplayStyle.None;
 
             var nodeState = string.IsNullOrEmpty(_nodeVersion)
                 ? UnityCliEnvironmentState.Missing
@@ -534,13 +670,13 @@ namespace UniGame.UnityCli.Editor
                 string.IsNullOrEmpty(_pipelineVersion)
                     ? UnityCliEnvironmentState.Warning
                     : UnityCliEnvironmentState.Ready,
-                string.IsNullOrEmpty(_pipelineVersion) ? "Optional" : _pipelineVersion,
+                string.IsNullOrEmpty(_pipelineVersion) ? "Missing" : _pipelineVersion,
                 string.IsNullOrEmpty(_pipelineVersion)
                     ? "Required only for Editor and Development Player tools."
                     : "Editor integration is available.");
-            rootVisualElement.Q<Button>("install-pipeline").style.display =
+            _installPipelineButton.style.display =
                 string.IsNullOrEmpty(_pipelineVersion) ? DisplayStyle.Flex : DisplayStyle.None;
-            rootVisualElement.Q<Button>("install-pipeline").SetEnabled(!_presenter.Busy);
+            _installPipelineButton.SetEnabled(!_presenter.Busy);
 
             var setupReady = File.Exists(_setupPath);
             var serverReady = _probe?.data?.serverInstalled == true ||
@@ -557,7 +693,7 @@ namespace UniGame.UnityCli.Editor
                     ? "Reinstall or repair the UPM package."
                     : serverReady
                         ? "Self-contained project-pinned server."
-                        : "Installed during Apply Configuration.");
+                        : "Installed during Apply.");
         }
 
         private void SetEnvironmentCard(
@@ -577,24 +713,28 @@ namespace UniGame.UnityCli.Editor
             rootVisualElement.Q<Label>($"{id}-detail").text = detail;
         }
 
-        private void RenderAgentDetection(IEnumerable<UnityCliAgentStatus> statuses)
+        private void RenderAgentStates()
         {
-            var lookup = (statuses ?? Array.Empty<UnityCliAgentStatus>())
-                .Where(status => status != null && !string.IsNullOrEmpty(status.id))
-                .ToDictionary(status => status.id, StringComparer.Ordinal);
             foreach (var definition in AgentDefinitions)
             {
-                var label = rootVisualElement.Q<Label>($"agent-status-{definition.id}");
-                if (lookup.TryGetValue(definition.id, out var status) && status.installed)
-                {
-                    label.text = "Detected";
-                    label.AddToClassList("agent-detected");
-                }
-                else
-                {
-                    label.text = "Not detected";
-                    label.RemoveFromClassList("agent-detected");
-                }
+                var detection = _agentDetections[definition.id];
+                var integration = _agentIntegrations[definition.id];
+                detection.text = _presenter.AgentDetection(definition.id);
+                detection.EnableInClassList(
+                    "agent-found",
+                    string.Equals(detection.text, "Found", StringComparison.Ordinal));
+                _agentToggleValues[definition.id].text =
+                    _presenter.AgentToggleValue(definition.id);
+                integration.text = _presenter.AgentIntegration(definition.id);
+                integration.EnableInClassList(
+                    "agent-on",
+                    string.Equals(integration.text, "On", StringComparison.Ordinal));
+                integration.EnableInClassList(
+                    "agent-pending",
+                    integration.text.StartsWith("Pending", StringComparison.Ordinal));
+                integration.EnableInClassList(
+                    "agent-conflict",
+                    string.Equals(integration.text, "Conflict", StringComparison.Ordinal));
             }
         }
 
@@ -617,6 +757,7 @@ namespace UniGame.UnityCli.Editor
             return _probe?.data?.serverInstalled == true ||
                    _probe?.data?.serverExists == true ||
                    _probe?.data?.skillInstalled == true ||
+                   _probe?.data?.agents?.Any(item => item.configured) == true ||
                    _probe?.data?.registrations?.Any(item => item.configured) == true;
         }
 
@@ -629,7 +770,11 @@ namespace UniGame.UnityCli.Editor
         {
             var request = string.IsNullOrWhiteSpace(_lastRequest) ? "No request yet." : _lastRequest;
             var response = string.IsNullOrWhiteSpace(_lastResponse) ? "No response yet." : _lastResponse;
-            return UnityCliSetupBridge.Sanitize($"Request\n{request}\n\nResponse\n{response}");
+            var install = string.IsNullOrWhiteSpace(_installDiagnostics)
+                ? "No install output."
+                : _installDiagnostics;
+            return UnityCliSetupBridge.Sanitize(
+                $"Request\n{request}\n\nResponse\n{response}\n\nInstall\n{install}");
         }
 
         private static Label CreateNotice(string text, string className)

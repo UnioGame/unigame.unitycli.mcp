@@ -29,8 +29,11 @@ Development Build.
 
 ## Bootstrap Unity CLI
 
-Follow Unity's current installation instructions instead of embedding an
-installer URL permanently. Verify with:
+In Unity, prefer the confirmed **Install** action on the **Unity CLI** card.
+It downloads Unity's official platform script, selects the beta channel, runs
+without a shell, bounds and sanitizes output, and removes the temporary script.
+On failure use **Copy Command** or **Docs**. Outside Unity, follow Unity's
+current installation instructions. Verify with:
 
 ```sh
 unity --version
@@ -64,11 +67,13 @@ Never pass `name=value` in place of `--name value`.
 
 ## Use the bundled MCP server
 
-Prefer `UniGame/Unity CLI MCP`: verify the environment, select agents, keep
-stdio and the project-local skill enabled, then choose **Review Configuration**.
-Inspect the inline plan and use **Apply Configuration** only after
-authorization. The guided screen installs the self-contained server, creates
-private project-pinned registrations, and installs this skill locally.
+Prefer `UniGame/Unity CLI MCP`: verify the environment, use each agent's
+**MCP** toggle to set the desired **On/Off** state, and keep stdio plus the
+project-local skill enabled. Found clients start enabled on first use. Inspect
+**Review**, including pending enables, pending disables, and conflicts, then
+use **Apply** only after authorization. The guided screen installs the
+self-contained server, creates or removes private project-pinned
+registrations, and installs this skill locally.
 
 Use **Advanced** only for optional loopback HTTP, managed removal, rollback, or
 sanitized diagnostics. A normal reviewed Apply repairs missing managed state;

@@ -12,11 +12,13 @@
 
 1. Open `UniGame/Unity CLI MCP`.
 2. Verify Unity CLI, Node 20+, and Pipeline status.
-3. Review the detected agents selected automatically on first use.
+3. Review the agents. Found clients start with **MCP On** on first use.
+   **Missing** clients cannot be enabled unless a managed registration already
+   exists and can be switched off.
 4. Keep stdio selected unless a shared endpoint is required.
 5. Enable the project-local skill.
-6. Choose **Review Configuration** and inspect every target inline.
-7. Choose **Apply Configuration** only after user confirmation.
+6. Choose **Review** and inspect every enable, disable, and target inline.
+7. Choose **Apply** only after user confirmation.
 8. Restart clients listed by the result and call
    `unity_connection_status`.
 
@@ -36,12 +38,12 @@ copies from user-owned content.
 
 ## Lifecycle
 
-- **Refresh Status** reads state only.
-- **Review Configuration** lists files, processes, conflicts, and restart
+- **Refresh** reads state only.
+- **Review** lists files, processes, conflicts, pending agent toggles, and restart
   requirements without mutation.
-- **Apply Configuration** creates a backup, performs atomic managed writes, and
+- **Apply** creates a backup, performs atomic managed writes, and
   restores missing managed state.
-- **Remove managed configuration** is available under Advanced and removes only
+- **Remove** is available under Advanced and removes only
   fingerprinted registrations and selected skill copies.
 - **Rollback** appears under Advanced only when a backup is available.
 

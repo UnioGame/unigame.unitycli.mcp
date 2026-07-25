@@ -56,9 +56,11 @@ Open the guided setup window:
 UniGame → Unity CLI MCP
 ```
 
-The guided screen checks the environment and preselects only detected agents.
-Keep stdio and the Agent Skill enabled, click **Review Configuration**, inspect
-the exact managed changes, then click **Apply Configuration**. The toolkit
+The guided screen checks the environment and switches MCP **On** for found
+agents on first use. Each agent row shows detection and integration state:
+**Found** or **Missing**, plus **On**, **Off**, **Pending On**,
+**Pending Off**, or **Conflict**. Keep stdio and the Agent Skill enabled,
+click **Review**, inspect the exact managed changes, then click **Apply**. The toolkit
 installs the self-contained server in stable user-local storage and creates a
 private registration pinned to this project.
 
@@ -237,13 +239,15 @@ All calls return a stable envelope with `ok`, `source`, `command`, `target`,
 `UniGame → Unity CLI MCP` is one UI Toolkit guided setup screen:
 
 1. **Environment** checks Unity CLI, Node, Pipeline, and the bundled server.
-2. **Agents** preselects detected clients on first use and remembers project-
-   specific choices across domain reloads.
+2. **Agents** gives each client an explicit **MCP** toggle and an **On/Off**
+   value. Found clients start enabled on first use. Toggle changes are only
+   desired state until Review and Apply; disabling an agent previews removal
+   of its managed registration.
 3. **Options** keeps the project-local Agent Skill enabled and recommends
    agent-owned stdio.
-4. **Configuration** runs a read-only **Review Configuration**. The exact
+4. **Configuration** runs a read-only **Review**. The exact
    create/update/remove targets, warnings, conflicts, and restart requirements
-   appear inline before **Apply Configuration** is enabled.
+   appear inline before **Apply** is enabled.
 
 Apply creates an atomic backup and also restores missing managed state.
 Conflicting same-name targets reveal a force option only in that preview.
@@ -255,9 +259,12 @@ Start/Stop, Remove managed configuration, Rollback when a backup exists, and
 Copy Diagnostics. Opening the window, refreshing status, or reviewing a plan
 never mutates files or starts processes.
 
-Pipeline `0.4.0-exp.1` appears as a separately confirmed install action only
-when missing. Pipeline is not required to configure standalone stdio. The
-toolkit never installs Node or Unity CLI, changes `PATH`, returns a license, or
+Pipeline `0.4.0-exp.1` and the native Unity CLI each show a compact
+**Install** action only when missing. Both require confirmation. Pipeline uses
+Unity Package Manager; the CLI uses Unity's official installer for the current
+platform with the beta channel. A failed CLI install exposes **Copy Command**
+and **Docs** while keeping sanitized output under **Advanced**. Node remains
+documentation-only. The toolkit never changes `PATH`, returns a license, or
 edits Cloud/VCS state.
 
 ## stdio and HTTP lifecycle
