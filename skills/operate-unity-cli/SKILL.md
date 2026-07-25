@@ -64,7 +64,7 @@ Never pass `name=value` in place of `--name value`.
 
 ## Use the bundled MCP server
 
-Prefer `Tools/UniGame/Unity CLI Control Center`: select agents, Preview, then
+Prefer `UniGame/Unity CLI MCP`: select agents, Preview, then
 Apply after authorization. It installs the self-contained server, creates
 private project-pinned registrations, and installs this skill locally.
 

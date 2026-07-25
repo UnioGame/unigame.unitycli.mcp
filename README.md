@@ -53,7 +53,7 @@ Add the Git package in Package Manager, or add it to
 The package brings `com.unity.pipeline@0.4.0-exp.1`. Open:
 
 ```text
-Tools → UniGame → Unity CLI Control Center
+UniGame → Unity CLI MCP
 ```
 
 Select the agents you use, click **Preview**, inspect the exact files and
@@ -231,7 +231,7 @@ All calls return a stable envelope with `ok`, `source`, `command`, `target`,
 
 ## Unity Control Center
 
-`Tools → UniGame → Unity CLI Control Center` provides:
+`UniGame → Unity CLI MCP` provides:
 
 - **Overview** — CLI, Node, Pipeline, server, Editor, and Player readiness;
 - **Agents** — first-line private project-pinned registrations;

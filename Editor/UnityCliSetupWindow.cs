@@ -59,8 +59,7 @@ namespace UniGame.UnityCli.Editor
         private string _lastResponse = string.Empty;
         private string _lastBackup = string.Empty;
 
-        [MenuItem("Tools/UniGame/Unity CLI Control Center")]
-        [MenuItem("Tools/UniGame/Unity CLI Setup")]
+        [MenuItem("UniGame/Unity CLI MCP")]
         private static void Open()
         {
             var window = GetWindow<UnityCliSetupWindow>();

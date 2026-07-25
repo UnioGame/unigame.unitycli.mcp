@@ -10,7 +10,7 @@
 
 ## Recommended setup
 
-1. Open `Tools/UniGame/Unity CLI Control Center`.
+1. Open `UniGame/Unity CLI MCP`.
 2. Verify Unity CLI, Node 20+, and Pipeline status.
 3. Select only the agents used on this machine.
 4. Keep stdio selected unless a shared endpoint is required.

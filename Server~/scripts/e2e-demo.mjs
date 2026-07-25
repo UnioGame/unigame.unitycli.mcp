@@ -120,7 +120,7 @@ try {
   await call("unity_connection_status", { projectPath, timeoutMs: 30_000 });
   await call("unity_editor_menu", {
     projectPath,
-    path: "Tools/UniGame/Unity CLI Control Center",
+    path: "UniGame/Unity CLI MCP",
     confirm: true,
   });
   const setupWindow = await call("unity_editor_eval", {
