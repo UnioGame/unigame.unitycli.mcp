@@ -12,7 +12,7 @@ control Development Players from any MCP-capable agent.**
 [![Node](https://img.shields.io/badge/Node-%E2%89%A520-339933?style=flat-square&logo=node.js&logoColor=white)](Server~/package.json)
 [![License](https://img.shields.io/badge/License-MIT-2ea44f?style=flat-square)](LICENSE)
 
-**269 MCP tools · project-pinned agent setup · stdio + HTTP · zero production runtime code**
+**269 MCP tools · Unity CLI · quick setup**
 
 </div>
 
@@ -50,16 +50,17 @@ Add the Git package in Package Manager, or add it to
 }
 ```
 
-The package brings `com.unity.pipeline@0.4.0-exp.1`. Open:
+Open the guided setup window:
 
 ```text
 UniGame → Unity CLI MCP
 ```
 
-Select the agents you use, click **Preview**, inspect the exact files and
-processes, then click **Apply**. The Control Center installs the self-contained
-server in stable user-local storage and creates a private registration pinned
-to this project.
+The guided screen checks the environment and preselects only detected agents.
+Keep stdio and the Agent Skill enabled, click **Review Configuration**, inspect
+the exact managed changes, then click **Apply Configuration**. The toolkit
+installs the self-contained server in stable user-local storage and creates a
+private registration pinned to this project.
 
 > [!TIP]
 > The default setup is agent-managed stdio plus the project-local Agent Skill.
@@ -88,8 +89,9 @@ unigameUnityCli_<project>_<path-hash>
 ```
 
 They are stored in private user configuration. Existing registrations and
-comments are preserved, every mutation has a backup, and **Repair**,
-**Remove**, and **Rollback** are available from the same window.
+comments are preserved and every mutation has a backup. A normal reviewed
+Apply restores missing managed state; Remove and Rollback stay out of the
+primary flow under **Advanced**.
 
 For a client that is not yet supported, use the generic fallback:
 
@@ -138,7 +140,8 @@ Claude Desktop, Cursor, Cline and other JSON-based clients use the generic
 
 ### 4. Install the Agent Skill
 
-Enable **Manage project-local operate-unity-cli skill** before Apply. The
+Keep **Install the project-local operate-unity-cli Agent Skill** enabled before
+Apply. The
 canonical copy is installed at:
 
 ```text
@@ -179,7 +182,7 @@ flowchart LR
     CLI -->|batch process| Batch["Unity Editor batch mode<br/>run · test · build"]
     CLI -->|localhost + descriptor token| Editor["Running Unity Editor<br/>Pipeline package"]
     CLI -->|localhost + descriptor token| Player["Development Player<br/>RuntimePipelineManager"]
-    Setup["Unity Control Center<br/>Preview · Apply · Repair · Rollback"] --> Agent
+    Setup["Guided Unity setup<br/>Check · Review · Apply"] --> Agent
     Setup --> Install["Stable user-local bundle"]
     Install --> Server
 ```
@@ -231,22 +234,31 @@ All calls return a stable envelope with `ok`, `source`, `command`, `target`,
 
 ## Unity Control Center
 
-`UniGame → Unity CLI MCP` provides:
+`UniGame → Unity CLI MCP` is one UI Toolkit guided setup screen:
 
-- **Overview** — CLI, Node, Pipeline, server, Editor, and Player readiness;
-- **Agents** — first-line private project-pinned registrations;
-- **Server** — stdio or optional loopback Streamable HTTP;
-- **Skill** — project-local skill and managed mirrors;
-- **Diagnostics** — requests, sanitized responses, conflicts, and version drift.
+1. **Environment** checks Unity CLI, Node, Pipeline, and the bundled server.
+2. **Agents** preselects detected clients on first use and remembers project-
+   specific choices across domain reloads.
+3. **Options** keeps the project-local Agent Skill enabled and recommends
+   agent-owned stdio.
+4. **Configuration** runs a read-only **Review Configuration**. The exact
+   create/update/remove targets, warnings, conflicts, and restart requirements
+   appear inline before **Apply Configuration** is enabled.
 
-Every change follows **Probe → Preview → Confirm → Apply → Health**. Apply
-creates an atomic backup. Repair, Remove, and Rollback touch only data carrying
-the package's managed fingerprint. Opening the window never mutates the
-machine.
+Apply creates an atomic backup and also restores missing managed state.
+Conflicting same-name targets reveal a force option only in that preview.
+Success lists clients that need a restart; failures automatically expose
+sanitized diagnostics.
 
-Pipeline `0.4.0-exp.1` can be installed from Overview after a separate
-confirmation. The toolkit never installs Node or Unity CLI, changes `PATH`,
-returns a license, or edits Cloud/VCS state.
+The collapsed **Advanced** section contains only optional loopback HTTP
+Start/Stop, Remove managed configuration, Rollback when a backup exists, and
+Copy Diagnostics. Opening the window, refreshing status, or reviewing a plan
+never mutates files or starts processes.
+
+Pipeline `0.4.0-exp.1` appears as a separately confirmed install action only
+when missing. Pipeline is not required to configure standalone stdio. The
+toolkit never installs Node or Unity CLI, changes `PATH`, returns a license, or
+edits Cloud/VCS state.
 
 ## stdio and HTTP lifecycle
 
@@ -255,9 +267,9 @@ Optional HTTP binds only to `127.0.0.1`, validates Host and Origin, and accepts
 a capability stored in a protected local file. Its state records the PID,
 owner Editor PID, port, and endpoint.
 
-The Control Center prevents duplicate startup, reports stale ownership, and
-stops its HTTP process when the owning Editor exits. Use HTTP only for clients
-that need a shared endpoint.
+Advanced prevents duplicate startup, reports sanitized failures, and stops its
+HTTP process when the owning Editor exits. Use HTTP only for clients that need
+a shared endpoint.
 
 ## Common workflows
 

@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements">
+    <ui:ScrollView name="setup-scroll" class="setup-scroll">
+        <ui:VisualElement class="page">
+            <ui:VisualElement class="hero">
+                <ui:VisualElement class="hero-copy">
+                    <ui:Label text="Unity CLI MCP" class="hero-title" />
+                    <ui:Label text="Connect this Unity project to your coding agents in one guided setup." class="hero-subtitle" />
+                </ui:VisualElement>
+                <ui:VisualElement class="hero-actions">
+                    <ui:Label name="page-status" text="Checking environment…" class="page-status" />
+                    <ui:Button name="refresh-status" text="Refresh Status" class="button-secondary" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+
+            <ui:VisualElement class="section">
+                <ui:Label text="1 · Environment" class="section-title" />
+                <ui:Label text="Required runtimes are checked locally. Pipeline is optional for standalone stdio setup." class="section-description" />
+                <ui:VisualElement class="environment-grid">
+                    <ui:VisualElement name="cli-card" class="environment-card">
+                        <ui:VisualElement class="status-header">
+                            <ui:Label text="Unity CLI" class="card-title" />
+                            <ui:Label name="cli-status" text="Missing" class="status-pill" />
+                        </ui:VisualElement>
+                        <ui:Label name="cli-version" text="Checking…" class="card-value" />
+                        <ui:Label name="cli-detail" text="" class="card-detail" />
+                        <ui:Button name="open-cli-docs" text="Installation guide ↗" class="button-link" />
+                    </ui:VisualElement>
+                    <ui:VisualElement name="node-card" class="environment-card">
+                        <ui:VisualElement class="status-header">
+                            <ui:Label text="Node.js" class="card-title" />
+                            <ui:Label name="node-status" text="Missing" class="status-pill" />
+                        </ui:VisualElement>
+                        <ui:Label name="node-version" text="Checking…" class="card-value" />
+                        <ui:Label name="node-detail" text="" class="card-detail" />
+                        <ui:Button name="open-node-docs" text="Install Node 20+ ↗" class="button-link" />
+                    </ui:VisualElement>
+                    <ui:VisualElement name="pipeline-card" class="environment-card">
+                        <ui:VisualElement class="status-header">
+                            <ui:Label text="Unity Pipeline" class="card-title" />
+                            <ui:Label name="pipeline-status" text="Warning" class="status-pill" />
+                        </ui:VisualElement>
+                        <ui:Label name="pipeline-version" text="Checking…" class="card-value" />
+                        <ui:Label name="pipeline-detail" text="" class="card-detail" />
+                        <ui:Button name="install-pipeline" text="Install Pipeline 0.4.0-exp.1…" class="button-link" />
+                    </ui:VisualElement>
+                    <ui:VisualElement name="server-card" class="environment-card">
+                        <ui:VisualElement class="status-header">
+                            <ui:Label text="MCP Server" class="card-title" />
+                            <ui:Label name="server-status" text="Warning" class="status-pill" />
+                        </ui:VisualElement>
+                        <ui:Label name="server-version" text="Checking…" class="card-value" />
+                        <ui:Label name="server-detail" text="" class="card-detail" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
+            </ui:VisualElement>
+
+            <ui:VisualElement class="section">
+                <ui:Label text="2 · Agents" class="section-title" />
+                <ui:Label text="Detected clients are selected on first use. You can also prepare a client that is not installed yet." class="section-description" />
+                <ui:VisualElement name="agents-container" class="agents-grid" />
+            </ui:VisualElement>
+
+            <ui:VisualElement class="section options-section">
+                <ui:Label text="3 · Options" class="section-title" />
+                <ui:Toggle name="install-skill" label="Install the project-local operate-unity-cli Agent Skill" value="true" class="option-toggle" />
+                <ui:Label text="Recommended transport: stdio. Each agent owns a private process pinned to this project." class="section-description" />
+            </ui:VisualElement>
+
+            <ui:VisualElement class="section configuration-section">
+                <ui:VisualElement class="configuration-copy">
+                    <ui:Label text="4 · Configuration" class="section-title" />
+                    <ui:Label text="Review is read-only. Apply appears only after you inspect the exact managed changes." class="section-description" />
+                </ui:VisualElement>
+                <ui:Button name="review-configuration" text="Review Configuration" class="button-primary review-button" />
+            </ui:VisualElement>
+
+            <ui:VisualElement name="preview-panel" class="section preview-panel">
+                <ui:Label text="Configuration preview" class="section-title" />
+                <ui:Label text="The following files or managed entries will change:" class="section-description" />
+                <ui:VisualElement name="changes-container" class="changes-container" />
+                <ui:VisualElement name="warnings-container" class="warnings-container" />
+                <ui:Toggle name="force-conflicts" label="Replace the conflicting same-name target" class="force-toggle" />
+                <ui:VisualElement class="preview-actions">
+                    <ui:Label text="Apply creates a backup before any mutation." class="section-description preview-note" />
+                    <ui:Button name="apply-configuration" text="Apply Configuration" class="button-primary" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+
+            <ui:VisualElement name="result-panel" class="section result-panel">
+                <ui:Label name="result-title" text="Configuration is ready" class="section-title" />
+                <ui:Label name="result-details" text="" class="result-details" />
+                <ui:VisualElement name="restart-container" class="restart-container" />
+            </ui:VisualElement>
+
+            <ui:Foldout name="advanced-foldout" text="Advanced" value="false" class="advanced">
+                <ui:Label text="Use these controls only for shared loopback transport or managed-state recovery." class="section-description" />
+                <ui:VisualElement class="advanced-group">
+                    <ui:Label text="Transport" class="card-title" />
+                    <ui:Toggle name="http-transport" label="Use loopback Streamable HTTP instead of stdio" />
+                    <uie:IntegerField name="http-port" label="HTTP port (0 = automatic)" value="0" />
+                    <ui:VisualElement class="advanced-row">
+                        <ui:Label name="http-status" text="Stopped — stdio remains available." class="advanced-status" />
+                        <ui:Button name="http-action" text="Start HTTP" class="button-secondary" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
+                <ui:VisualElement class="advanced-group">
+                    <ui:Label text="Managed state" class="card-title" />
+                    <ui:Label text="Remove touches only toolkit-managed registrations and skill copies. Rollback restores the latest backup." class="card-detail" />
+                    <ui:VisualElement class="advanced-row">
+                        <ui:Button name="remove-configuration" text="Remove managed configuration…" class="button-danger" />
+                        <ui:Button name="rollback-configuration" text="Rollback latest backup…" class="button-secondary" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
+                <ui:VisualElement name="diagnostics-panel" class="advanced-group diagnostics-panel">
+                    <ui:VisualElement class="advanced-row">
+                        <ui:Label text="Sanitized diagnostics" class="card-title" />
+                        <ui:Button name="copy-diagnostics" text="Copy Diagnostics" class="button-secondary" />
+                    </ui:VisualElement>
+                    <ui:TextField name="diagnostics" multiline="true" is-read-only="true" class="diagnostics-field" />
+                </ui:VisualElement>
+            </ui:Foldout>
+        </ui:VisualElement>
+    </ui:ScrollView>
+</ui:UXML>

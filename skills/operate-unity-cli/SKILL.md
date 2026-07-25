@@ -64,9 +64,15 @@ Never pass `name=value` in place of `--name value`.
 
 ## Use the bundled MCP server
 
-Prefer `UniGame/Unity CLI MCP`: select agents, Preview, then
-Apply after authorization. It installs the self-contained server, creates
+Prefer `UniGame/Unity CLI MCP`: verify the environment, select agents, keep
+stdio and the project-local skill enabled, then choose **Review Configuration**.
+Inspect the inline plan and use **Apply Configuration** only after
+authorization. The guided screen installs the self-contained server, creates
 private project-pinned registrations, and installs this skill locally.
+
+Use **Advanced** only for optional loopback HTTP, managed removal, rollback, or
+sanitized diagnostics. A normal reviewed Apply repairs missing managed state;
+force appears only when the plan detects a same-name conflict.
 
 For standalone use, launch `Server~/dist/index.js` with Node. Configure `UNITY_PROJECT_PATH` for
 an Editor target or provide `projectPath` on each `unity_editor_*` call. The
@@ -115,7 +121,7 @@ batch logs can echo process arguments.
 - Read [recipes.md](references/recipes.md) for verified workflows.
 - Read [mcp-tools.md](references/mcp-tools.md) for the MCP contract.
 - Read [setup-and-agents.md](references/setup-and-agents.md) when installing,
-  repairing, removing, or troubleshooting an agent registration or HTTP
+  recovering, removing, or troubleshooting an agent registration or HTTP
   lifecycle.
 - Read
   [unity-cli-capabilities.md](../../Documentation~/unity-cli-capabilities.md)
