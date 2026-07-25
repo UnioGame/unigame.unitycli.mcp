@@ -1,6 +1,6 @@
 <div align="center">
 
-# UniGame Unity CLI MCP Toolkit
+# Unity CLI MCP Toolkit
 
 **Install Unity, automate projects, author scenes, run tests, build Players, and
 control Development Players from any MCP-capable agent.**
