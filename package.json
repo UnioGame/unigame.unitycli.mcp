@@ -1,0 +1,25 @@
+{
+  "name": "com.unigame.unitycli.mcp",
+  "version": "0.1.0",
+  "displayName": "UniGame Unity CLI MCP Toolkit",
+  "description": "Agent skill, MCP server, and Unity Editor setup tools for the experimental Unity CLI and Unity Pipeline.",
+  "unity": "6000.0",
+  "author": {
+    "name": "UnioGame",
+    "url": "https://github.com/UnioGame"
+  },
+  "license": "MIT",
+  "homepage": "https://github.com/UnioGame/unigame.unitycli.mcp#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/UnioGame/unigame.unitycli.mcp.git"
+  },
+  "keywords": [
+    "unity",
+    "cli",
+    "mcp",
+    "agent",
+    "automation",
+    "pipeline"
+  ]
+}

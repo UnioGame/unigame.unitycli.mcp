@@ -1,0 +1,391 @@
+{
+  "schemaVersion": 1,
+  "source": "player",
+  "productVersion": "0.4.0-exp.1",
+  "editorVersion": "6000.3.14f1",
+  "generatedAt": "2026-07-24T23:22:07.058Z",
+  "tools": [
+    {
+      "name": "eval",
+      "toolName": "unity_player_eval",
+      "description": "Evaluate C# code dynamically using Roslyn compiler",
+      "source": "player",
+      "command": [
+        "eval"
+      ],
+      "dangerous": true,
+      "parameters": [
+        {
+          "name": "code",
+          "type": "string",
+          "description": "code",
+          "required": true,
+          "positional": false,
+          "multiple": false
+        },
+        {
+          "name": "timeout",
+          "type": "int",
+          "description": "timeout",
+          "required": false,
+          "positional": false,
+          "multiple": false
+        }
+      ]
+    },
+    {
+      "name": "eval_file",
+      "toolName": "unity_player_eval_file",
+      "description": "Evaluate C# code read from a .cs file on disk",
+      "source": "player",
+      "command": [
+        "eval_file"
+      ],
+      "dangerous": true,
+      "parameters": [
+        {
+          "name": "file",
+          "type": "string",
+          "description": "file",
+          "required": true,
+          "positional": false,
+          "multiple": false
+        },
+        {
+          "name": "timeout",
+          "type": "int",
+          "description": "timeout",
+          "required": false,
+          "positional": false,
+          "multiple": false
+        }
+      ]
+    },
+    {
+      "name": "console",
+      "toolName": "unity_player_console",
+      "description": "Get captured Unity console output",
+      "source": "player",
+      "command": [
+        "console"
+      ],
+      "dangerous": false,
+      "parameters": [
+        {
+          "name": "tail",
+          "type": "int",
+          "description": "tail",
+          "required": false,
+          "positional": false,
+          "multiple": false
+        },
+        {
+          "name": "level",
+          "type": "string",
+          "description": "level",
+          "required": false,
+          "positional": false,
+          "multiple": false
+        },
+        {
+          "name": "since",
+          "type": "long",
+          "description": "since",
+          "required": false,
+          "positional": false,
+          "multiple": false
+        }
+      ]
+    },
+    {
+      "name": "reload_file_override",
+      "toolName": "unity_player_reload_file_override",
+      "description": "Compile and apply hot reload file changes immediately",
+      "source": "player",
+      "command": [
+        "reload_file_override"
+      ],
+      "dangerous": true,
+      "parameters": [
+        {
+          "name": "filename",
+          "type": "string",
+          "description": "filename",
+          "required": true,
+          "positional": false,
+          "multiple": false
+        },
+        {
+          "name": "timeout",
+          "type": "int",
+          "description": "timeout",
+          "required": false,
+          "positional": false,
+          "multiple": false
+        },
+        {
+          "name": "assemblyDir",
+          "type": "string",
+          "description": "assemblyDir",
+          "required": false,
+          "positional": false,
+          "multiple": false
+        }
+      ]
+    },
+    {
+      "name": "reload_file",
+      "toolName": "unity_player_reload_file",
+      "description": "Compile and apply in-place [HotReload] edits",
+      "source": "player",
+      "command": [
+        "reload_file"
+      ],
+      "dangerous": true,
+      "parameters": [
+        {
+          "name": "filename",
+          "type": "string",
+          "description": "filename",
+          "required": true,
+          "positional": false,
+          "multiple": false
+        },
+        {
+          "name": "timeout",
+          "type": "int",
+          "description": "timeout",
+          "required": false,
+          "positional": false,
+          "multiple": false
+        },
+        {
+          "name": "assemblyDir",
+          "type": "string",
+          "description": "assemblyDir",
+          "required": false,
+          "positional": false,
+          "multiple": false
+        },
+        {
+          "name": "pdb",
+          "type": "bool",
+          "description": "pdb",
+          "required": false,
+          "positional": false,
+          "multiple": false
+        }
+      ]
+    },
+    {
+      "name": "cleanup_hotreload",
+      "toolName": "unity_player_cleanup_hotreload",
+      "description": "Remove old hot reload DLL versions and clear registry",
+      "source": "player",
+      "command": [
+        "cleanup_hotreload"
+      ],
+      "dangerous": true,
+      "parameters": [
+        {
+          "name": "assemblyDir",
+          "type": "string",
+          "description": "assemblyDir",
+          "required": true,
+          "positional": false,
+          "multiple": false
+        },
+        {
+          "name": "force_domain_reload",
+          "type": "bool",
+          "description": "force_domain_reload",
+          "required": false,
+          "positional": false,
+          "multiple": false
+        }
+      ]
+    },
+    {
+      "name": "hotreload_status",
+      "toolName": "unity_player_hotreload_status",
+      "description": "Show current hot reload registry status and statistics",
+      "source": "player",
+      "command": [
+        "hotreload_status"
+      ],
+      "dangerous": false,
+      "parameters": []
+    },
+    {
+      "name": "quit",
+      "toolName": "unity_player_quit",
+      "description": "Gracefully quit the Unity application",
+      "source": "player",
+      "command": [
+        "quit"
+      ],
+      "dangerous": true,
+      "parameters": [
+        {
+          "name": "exitCode",
+          "type": "int",
+          "description": "exitCode",
+          "required": false,
+          "positional": false,
+          "multiple": false
+        }
+      ]
+    },
+    {
+      "name": "set_target_framerate",
+      "toolName": "unity_player_set_target_framerate",
+      "description": "Set the target frame rate",
+      "source": "player",
+      "command": [
+        "set_target_framerate"
+      ],
+      "dangerous": true,
+      "parameters": [
+        {
+          "name": "frameRate",
+          "type": "int",
+          "description": "frameRate",
+          "required": true,
+          "positional": false,
+          "multiple": false
+        }
+      ]
+    },
+    {
+      "name": "set_timescale",
+      "toolName": "unity_player_set_timescale",
+      "description": "Set the time scale",
+      "source": "player",
+      "command": [
+        "set_timescale"
+      ],
+      "dangerous": true,
+      "parameters": [
+        {
+          "name": "scale",
+          "type": "float",
+          "description": "scale",
+          "required": true,
+          "positional": false,
+          "multiple": false
+        }
+      ]
+    },
+    {
+      "name": "simulate_key",
+      "toolName": "unity_player_simulate_key",
+      "description": "Simulate an Input System keyboard event",
+      "source": "player",
+      "command": [
+        "simulate_key"
+      ],
+      "dangerous": false,
+      "parameters": [
+        {
+          "name": "key",
+          "type": "string",
+          "description": "key",
+          "required": true,
+          "positional": false,
+          "multiple": false
+        },
+        {
+          "name": "action",
+          "type": "string",
+          "description": "action",
+          "required": false,
+          "positional": false,
+          "multiple": false
+        }
+      ]
+    },
+    {
+      "name": "simulate_pointer",
+      "toolName": "unity_player_simulate_pointer",
+      "description": "Simulate an Input System pointer event",
+      "source": "player",
+      "command": [
+        "simulate_pointer"
+      ],
+      "dangerous": false,
+      "parameters": [
+        {
+          "name": "x",
+          "type": "float",
+          "description": "x",
+          "required": true,
+          "positional": false,
+          "multiple": false
+        },
+        {
+          "name": "y",
+          "type": "float",
+          "description": "y",
+          "required": true,
+          "positional": false,
+          "multiple": false
+        },
+        {
+          "name": "action",
+          "type": "string",
+          "description": "action",
+          "required": false,
+          "positional": false,
+          "multiple": false
+        },
+        {
+          "name": "button",
+          "type": "string",
+          "description": "button",
+          "required": false,
+          "positional": false,
+          "multiple": false
+        }
+      ]
+    },
+    {
+      "name": "log",
+      "toolName": "unity_player_log",
+      "description": "Write a message to the Unity console",
+      "source": "player",
+      "command": [
+        "log"
+      ],
+      "dangerous": false,
+      "parameters": [
+        {
+          "name": "message",
+          "type": "string",
+          "description": "message",
+          "required": true,
+          "positional": false,
+          "multiple": false
+        },
+        {
+          "name": "level",
+          "type": "string",
+          "description": "level",
+          "required": false,
+          "positional": false,
+          "multiple": false
+        }
+      ]
+    },
+    {
+      "name": "runtime_status",
+      "toolName": "unity_player_runtime_status",
+      "description": "Get comprehensive runtime application status",
+      "source": "player",
+      "command": [
+        "runtime_status"
+      ],
+      "dangerous": false,
+      "parameters": []
+    }
+  ]
+}

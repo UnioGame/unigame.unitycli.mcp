@@ -1,0 +1,51 @@
+{
+  "name": "@unigame/unity-cli-mcp",
+  "version": "0.1.0",
+  "description": "MCP server exposing Unity CLI, Pipeline Editor, and Development Player tools.",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "unigame-unity-cli-mcp": "dist/index.js",
+    "unigame-unity-cli-setup": "dist/setup.js"
+  },
+  "files": [
+    "build",
+    "dist",
+    "catalogs",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json && npm run bundle",
+    "bundle": "esbuild src/index.ts src/setup.ts --bundle --platform=node --format=esm --target=node20 --outdir=dist",
+    "start": "node dist/index.js",
+    "setup": "node dist/setup.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "node scripts/e2e-demo.mjs",
+    "test:e2e-setup": "node scripts/e2e-setup.mjs",
+    "catalog:generate": "node scripts/generate-cli-catalog.mjs",
+    "pack:check": "npm pack --dry-run"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "typescript": "^5.8.0",
+    "vitest": "^3.2.4"
+  },
+  "overrides": {
+    "@hono/node-server": "^2.0.5"
+  },
+  "keywords": [
+    "unity",
+    "mcp",
+    "cli",
+    "pipeline",
+    "agent"
+  ],
+  "license": "MIT"
+}

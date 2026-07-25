@@ -1,0 +1,37 @@
+# Node
+Server~/node_modules/
+Server~/coverage/
+Server~/.cache/
+*.tsbuildinfo
+
+# Unity temporary projects and generated state
+Library/
+Temp/
+Logs/
+obj/
+Build/
+Builds/
+UserSettings/
+.utmp/
+
+# Local MCP and credential-bearing files
+.env
+.env.*
+!.env.example
+*.local.json
+*.local.toml
+proxy-request.json
+*.log
+
+# IDE and operating system
+.idea/
+.vs/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Keep the distributable MCP build.
+!Server~/build/
+!Server~/build/**
+!Server~/dist/
+!Server~/dist/**
