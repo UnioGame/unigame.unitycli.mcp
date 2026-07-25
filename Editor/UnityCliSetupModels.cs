@@ -20,6 +20,9 @@ namespace UniGame.UnityCli.Editor
         public bool installSkill;
         public int port;
         public int ownerPid;
+        public string editorInstanceId;
+        public string ownerStartedAtUtc;
+        public bool keepAlive;
         public string backupId;
         public bool stop;
     }
@@ -81,11 +84,37 @@ namespace UniGame.UnityCli.Editor
         public UnityCliHttpStatus http = new UnityCliHttpStatus();
         public UnityCliRegistrationStatus[] registrations =
             Array.Empty<UnityCliRegistrationStatus>();
+        public UnityCliEditorRegistrySnapshot registry = new UnityCliEditorRegistrySnapshot();
+        public int live_lease_count;
+        public int lease_count;
         public bool stopped;
         public bool alreadyRunning;
         public bool pendingHealth;
         public int pid;
         public int port;
+    }
+
+    [Serializable]
+    internal sealed class UnityCliEditorRegistrySnapshot
+    {
+        public UnityCliEditorMetadata[] active_editors = Array.Empty<UnityCliEditorMetadata>();
+        public UnityCliStaleEditorMetadata[] stale_editors =
+            Array.Empty<UnityCliStaleEditorMetadata>();
+        public UnityCliCorruptRegistryEntry[] corrupt_entries =
+            Array.Empty<UnityCliCorruptRegistryEntry>();
+    }
+
+    [Serializable]
+    internal sealed class UnityCliStaleEditorMetadata : UnityCliEditorMetadata
+    {
+        public string stale_reason;
+    }
+
+    [Serializable]
+    internal sealed class UnityCliCorruptRegistryEntry
+    {
+        public string path;
+        public string error;
     }
 
     [Serializable]
@@ -306,7 +335,8 @@ namespace UniGame.UnityCli.Editor
             if (!string.IsNullOrEmpty(response?.backup))
                 LastBackup = response.backup;
 
-            if (string.Equals(response?.operation, "plan", StringComparison.Ordinal) &&
+            if ((string.Equals(response?.operation, "plan", StringComparison.Ordinal) ||
+                 string.Equals(response?.operation, "repair", StringComparison.Ordinal)) &&
                 response.ok)
             {
                 PreviewReady = true;

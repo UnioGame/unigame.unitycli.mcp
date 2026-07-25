@@ -34,6 +34,9 @@ export interface SetupRequest {
   installSkill?: boolean;
   port?: number;
   ownerPid?: number;
+  editorInstanceId?: string;
+  ownerStartedAtUtc?: string;
+  keepAlive?: boolean;
   backupId?: string;
   stop?: boolean;
 }
@@ -65,6 +68,7 @@ export interface SetupContext {
   dataPath: string;
   installRoot: string;
   serverName: string;
+  legacyServerName: string;
 }
 
 export interface AgentRegistration {

@@ -22,7 +22,10 @@ For example, `projects link vcs` becomes `unity_cli_projects_link_vcs`.
 
 ## Shared input
 
-- `projectPath`: absolute project path for project-aware CLI and Editor tools.
+- `editor_instance_id`: exact Editor session UUID; highest-priority selector.
+- `project_id`: stable project hash; valid only when one ready instance matches.
+- `project_path`: normalized absolute Editor project path.
+- `projectPath`: deprecated alias for `project_path`.
 - `runtimePath`: directory containing `.unity-pipeline-runtime-port`.
 - `timeoutMs`: process/command timeout.
 - `confirm`: explicit acknowledgement for high-risk operations.
@@ -55,7 +58,8 @@ and redacts returned output.
 Failures preserve the same shape and add one stable toolkit error code:
 `CLI_NOT_FOUND`, `VERSION_MISMATCH`, `EDITOR_NOT_CONNECTED`,
 `PLAYER_NOT_CONNECTED`, `CONFIRMATION_REQUIRED`, `TIMEOUT`,
-`UPSTREAM_FAILED`, or `INVALID_OUTPUT`.
+`UPSTREAM_FAILED`, `INVALID_OUTPUT`, `TARGET_REQUIRED`, `TARGET_NOT_FOUND`,
+`TARGET_AMBIGUOUS`, `TARGET_STALE`, or `TARGET_NOT_READY`.
 
 ## Confirmation
 

@@ -30,6 +30,18 @@ describe("catalogs", () => {
     expect(schema.properties).toHaveProperty("includeLogs");
   });
 
+  it("adds all dynamic Editor selectors without changing catalog names", async () => {
+    const catalogs = await loadCatalogs();
+    const editor = catalogs.find((entry) => entry.source === "editor")!;
+    const schema = inputSchema(editor.tools[0]) as {
+      properties: Record<string, { deprecated?: boolean }>;
+    };
+    expect(schema.properties).toHaveProperty("editor_instance_id");
+    expect(schema.properties).toHaveProperty("project_id");
+    expect(schema.properties).toHaveProperty("project_path");
+    expect(schema.properties.projectPath.deprecated).toBe(true);
+  });
+
   it("exposes Pipeline vector matrices as numeric nested arrays", async () => {
     const catalogs = await loadCatalogs();
     const editor = catalogs.find((catalog) => catalog.source === "editor");

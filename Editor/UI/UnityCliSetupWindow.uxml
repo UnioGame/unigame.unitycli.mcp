@@ -4,18 +4,44 @@
         <ui:VisualElement class="page">
             <ui:VisualElement class="hero">
                 <ui:VisualElement class="hero-copy">
-                    <ui:Label text="Unity CLI MCP" class="hero-title" />
-                    <ui:Label text="Connect this Unity project to your coding agents in one guided setup." class="hero-subtitle" />
+                    <ui:Label text="Unity CLI MCP Control Center" class="hero-title" />
+                    <ui:Label text="One global agent endpoint. Every open Unity Editor publishes itself dynamically." class="hero-subtitle" />
                 </ui:VisualElement>
                 <ui:VisualElement class="hero-actions">
                     <ui:Label name="page-status" text="Checking environment…" class="page-status" />
-                    <ui:Button name="refresh-status" text="Refresh" class="button-secondary" />
+                    <ui:Button name="refresh-status" text="Refresh status" tooltip="Refresh read-only diagnostics" class="button-secondary" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+
+            <ui:VisualElement class="architecture-strip">
+                <ui:VisualElement class="architecture-step">
+                    <ui:Label text="1" class="step-number" />
+                    <ui:VisualElement class="step-copy">
+                        <ui:Label text="Global Agent Registration" class="step-title" />
+                        <ui:Label text="Each supported agent has one unity_cli_mcp registration." class="step-detail" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
+                <ui:Label text="→" class="architecture-arrow" />
+                <ui:VisualElement class="architecture-step">
+                    <ui:Label text="2" class="step-number" />
+                    <ui:VisualElement class="step-copy">
+                        <ui:Label text="Shared HTTP Broker" class="step-title" />
+                        <ui:Label text="The broker routes tools to the selected live Editor." class="step-detail" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
+                <ui:Label text="→" class="architecture-arrow" />
+                <ui:VisualElement class="architecture-step">
+                    <ui:Label text="3" class="step-number" />
+                    <ui:VisualElement class="step-copy">
+                        <ui:Label text="Dynamic Editor Publication" class="step-title" />
+                        <ui:Label text="Editors publish heartbeats and disappear when they close." class="step-detail" />
+                    </ui:VisualElement>
                 </ui:VisualElement>
             </ui:VisualElement>
 
             <ui:VisualElement class="section">
-                <ui:Label text="1 · Environment" class="section-title" />
-                <ui:Label text="Required runtimes are checked locally. Pipeline is optional for standalone stdio setup." class="section-description" />
+                <ui:Label text="Overview" class="section-title" />
+                <ui:Label text="Opening this window is read-only. Preview before Apply, Repair, Remove, or Rollback changes managed state." class="section-description" />
                 <ui:VisualElement class="environment-grid">
                     <ui:VisualElement name="cli-card" class="environment-card">
                         <ui:VisualElement class="status-header">
@@ -26,8 +52,8 @@
                         <ui:Label name="cli-detail" text="" class="card-detail" />
                         <ui:VisualElement class="card-actions">
                             <ui:Button name="install-cli" text="Install" class="button-link" />
-                            <ui:Button name="copy-cli-command" text="Copy Command" class="button-link install-fallback" />
-                            <ui:Button name="open-cli-docs" text="Docs" class="button-link" />
+                            <ui:Button name="copy-cli-command" text="Copy command" class="button-link install-fallback" />
+                            <ui:Button name="open-cli-docs" text="Documentation" class="button-link" />
                         </ui:VisualElement>
                     </ui:VisualElement>
                     <ui:VisualElement name="node-card" class="environment-card">
@@ -37,7 +63,7 @@
                         </ui:VisualElement>
                         <ui:Label name="node-version" text="Checking…" class="card-value" />
                         <ui:Label name="node-detail" text="" class="card-detail" />
-                        <ui:Button name="open-node-docs" text="Docs" class="button-link" />
+                        <ui:Button name="open-node-docs" text="Documentation" class="button-link" />
                     </ui:VisualElement>
                     <ui:VisualElement name="pipeline-card" class="environment-card">
                         <ui:VisualElement class="status-header">
@@ -50,7 +76,7 @@
                     </ui:VisualElement>
                     <ui:VisualElement name="server-card" class="environment-card">
                         <ui:VisualElement class="status-header">
-                            <ui:Label text="MCP Server" class="card-title" />
+                            <ui:Label text="Broker bundle" class="card-title" />
                             <ui:Label name="server-status" text="Warning" class="status-pill" />
                         </ui:VisualElement>
                         <ui:Label name="server-version" text="Checking…" class="card-value" />
@@ -60,34 +86,113 @@
             </ui:VisualElement>
 
             <ui:VisualElement class="section">
-                <ui:Label text="2 · Agents" class="section-title" />
-                <ui:Label text="Found clients start enabled. Toggle MCP to plan integration changes." class="section-description" />
+                <ui:VisualElement class="section-heading-row">
+                    <ui:VisualElement class="section-heading-copy">
+                        <ui:Label text="This Editor" class="section-title" />
+                        <ui:Label text="Dynamic Editor Publication · read-only live identity and routing state" class="eyebrow" />
+                    </ui:VisualElement>
+                    <ui:Label name="this-editor-state" text="No Editor" class="status-pill state-neutral" />
+                </ui:VisualElement>
+                <ui:VisualElement class="details-grid">
+                    <ui:VisualElement class="detail-cell">
+                        <ui:Label text="Project ID" class="detail-label" />
+                        <ui:Label name="this-project-id" text="Unavailable" class="detail-value selectable-value" />
+                    </ui:VisualElement>
+                    <ui:VisualElement class="detail-cell">
+                        <ui:Label text="Editor instance ID" class="detail-label" />
+                        <ui:Label name="this-editor-instance-id" text="Unavailable" class="detail-value selectable-value" />
+                    </ui:VisualElement>
+                    <ui:VisualElement class="detail-cell">
+                        <ui:Label text="Connection state" class="detail-label" />
+                        <ui:Label name="this-connection-state" text="Not published" class="detail-value" />
+                    </ui:VisualElement>
+                    <ui:VisualElement class="detail-cell">
+                        <ui:Label text="Last heartbeat" class="detail-label" />
+                        <ui:Label name="this-heartbeat" text="Unavailable" class="detail-value" />
+                    </ui:VisualElement>
+                    <ui:VisualElement class="detail-cell detail-cell-wide">
+                        <ui:Label text="Pipeline" class="detail-label" />
+                        <ui:Label name="this-pipeline" text="Checking…" class="detail-value" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
+                <ui:VisualElement name="this-editor-notices" class="notices-container" />
+            </ui:VisualElement>
+
+            <ui:VisualElement class="section">
+                <ui:VisualElement class="section-heading-row">
+                    <ui:VisualElement class="section-heading-copy">
+                        <ui:Label text="Active Editors" class="section-title" />
+                        <ui:Label text="Live publications currently visible to the shared broker" class="eyebrow" />
+                    </ui:VisualElement>
+                    <ui:Label name="active-editors-count" text="0 Editors" class="count-pill" />
+                </ui:VisualElement>
+                <ui:VisualElement name="active-editors-container" class="editors-grid" />
+                <ui:VisualElement name="active-editors-empty" class="empty-state">
+                    <ui:Label text="No Editor publications" class="empty-title" />
+                    <ui:Label text="Open a project with Pipeline enabled, or refresh after its first heartbeat." class="empty-detail" />
+                </ui:VisualElement>
+                <ui:VisualElement name="active-editors-notices" class="notices-container" />
+            </ui:VisualElement>
+
+            <ui:VisualElement class="section">
+                <ui:Label text="Agent Integration" class="section-title" />
+                <ui:Label text="Global Agent Registration · one unity_cli_mcp entry per client, shared across Unity projects." class="section-description" />
+                <ui:VisualElement class="registration-banner">
+                    <ui:VisualElement>
+                        <ui:Label text="Managed server name" class="detail-label" />
+                        <ui:Label name="global-server-name" text="unity_cli_mcp" class="registration-name" />
+                    </ui:VisualElement>
+                    <ui:Label text="Global · not per-project" class="status-pill status-info" />
+                </ui:VisualElement>
                 <ui:VisualElement name="agents-container" class="agents-grid" />
             </ui:VisualElement>
 
+            <ui:VisualElement class="section">
+                <ui:Label text="Shared HTTP Broker" class="section-title" />
+                <ui:Label text="A single loopback broker is shared by all live Editor leases." class="section-description" />
+                <ui:VisualElement class="broker-card">
+                    <ui:VisualElement class="broker-metric">
+                        <ui:Label text="Port" class="detail-label" />
+                        <ui:Label name="broker-port" text="Automatic" class="metric-value" />
+                    </ui:VisualElement>
+                    <ui:VisualElement class="broker-metric">
+                        <ui:Label text="Live leases" class="detail-label" />
+                        <ui:Label name="broker-lease-count" text="0" class="metric-value" />
+                    </ui:VisualElement>
+                    <ui:VisualElement class="broker-policy">
+                        <ui:Label text="Lifetime policy" class="detail-label" />
+                        <ui:Label name="broker-policy" text="Stops after the last Editor closes." class="detail-value" />
+                    </ui:VisualElement>
+                    <ui:Label name="broker-state" text="Stopped" class="status-pill state-neutral" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+
             <ui:VisualElement class="section options-section">
-                <ui:Label text="3 · Options" class="section-title" />
-                <ui:Toggle name="install-skill" label="Install the project-local operate-unity-cli Agent Skill" value="true" class="option-toggle" />
-                <ui:Label text="Recommended transport: stdio. Each agent owns a private process pinned to this project." class="section-description" />
+                <ui:Label text="Skill" class="section-title" />
+                <ui:Toggle name="install-skill" label="Install the project-local operate-unity-cli Agent Skill" value="true" tooltip="Include the managed skill copy in the next preview" class="option-toggle" />
+                <ui:Label text="Skill installation is optional and only changes after Preview and Apply." class="section-description" />
             </ui:VisualElement>
 
             <ui:VisualElement class="section configuration-section">
                 <ui:VisualElement class="configuration-copy">
-                    <ui:Label text="4 · Configuration" class="section-title" />
-                    <ui:Label text="Review is read-only. Apply appears only after you inspect the exact managed changes." class="section-description" />
+                    <ui:Label text="Managed configuration" class="section-title" />
+                    <ui:Label text="Preview is read-only. Apply or Repair is enabled only after you inspect the exact managed changes." class="section-description" />
                 </ui:VisualElement>
-                <ui:Button name="review-configuration" text="Review" class="button-primary review-button" />
+                <ui:VisualElement class="configuration-actions">
+                    <ui:Button name="review-configuration" text="Preview changes" tooltip="Read-only configuration preview" class="button-primary review-button" />
+                    <ui:Button name="repair-configuration" text="Preview repair" tooltip="Preview a repair using the same confirmed managed workflow" class="button-secondary" />
+                </ui:VisualElement>
             </ui:VisualElement>
 
             <ui:VisualElement name="preview-panel" class="section preview-panel">
-                <ui:Label text="Configuration preview" class="section-title" />
+                <ui:Label name="preview-title" text="Configuration preview" class="section-title" />
                 <ui:Label text="The following files or managed entries will change:" class="section-description" />
                 <ui:VisualElement name="changes-container" class="changes-container" />
                 <ui:VisualElement name="warnings-container" class="warnings-container" />
                 <ui:Toggle name="force-conflicts" label="Replace the conflicting same-name target" class="force-toggle" />
                 <ui:VisualElement class="preview-actions">
                     <ui:Label text="Apply creates a backup before any mutation." class="section-description preview-note" />
-                    <ui:Button name="apply-configuration" text="Apply" class="button-primary" />
+                    <ui:Button name="apply-configuration" text="Apply preview" class="button-primary" />
                 </ui:VisualElement>
             </ui:VisualElement>
 
@@ -97,12 +202,12 @@
                 <ui:VisualElement name="restart-container" class="restart-container" />
             </ui:VisualElement>
 
-            <ui:Foldout name="advanced-foldout" text="Advanced" value="false" class="advanced">
-                <ui:Label text="Use these controls only for shared loopback transport or managed-state recovery." class="section-description" />
+            <ui:Foldout name="advanced-foldout" text="Server and Diagnostics" value="false" class="advanced">
+                <ui:Label text="Advanced broker controls and managed-state recovery. Destructive actions always require confirmation." class="section-description" />
                 <ui:VisualElement class="advanced-group">
-                    <ui:Label text="Transport" class="card-title" />
-                    <ui:Toggle name="http-transport" label="Use loopback Streamable HTTP instead of stdio" />
-                    <uie:IntegerField name="http-port" label="HTTP port (0 = automatic)" value="0" />
+                    <ui:Label text="Server transport" class="card-title" />
+                    <ui:Toggle name="http-transport" label="Use shared loopback Streamable HTTP" />
+                    <uie:IntegerField name="http-port" label="Preferred HTTP port (0 = automatic)" value="0" />
                     <ui:VisualElement class="advanced-row">
                         <ui:Label name="http-status" text="Stopped — stdio remains available." class="advanced-status" />
                         <ui:Button name="http-action" text="Start" class="button-secondary" />
@@ -111,17 +216,17 @@
                 <ui:VisualElement class="advanced-group">
                     <ui:Label text="Managed state" class="card-title" />
                     <ui:Label text="Remove touches only toolkit-managed registrations and skill copies. Rollback restores the latest backup." class="card-detail" />
-                    <ui:VisualElement class="advanced-row">
-                        <ui:Button name="remove-configuration" text="Remove" class="button-danger" />
-                        <ui:Button name="rollback-configuration" text="Rollback" class="button-secondary" />
+                    <ui:VisualElement class="advanced-row advanced-actions">
+                        <ui:Button name="remove-configuration" text="Remove managed data" class="button-danger" />
+                        <ui:Button name="rollback-configuration" text="Rollback latest backup" class="button-secondary" />
                     </ui:VisualElement>
                 </ui:VisualElement>
                 <ui:VisualElement name="diagnostics-panel" class="advanced-group diagnostics-panel">
                     <ui:VisualElement class="advanced-row">
                         <ui:Label text="Sanitized diagnostics" class="card-title" />
-                        <ui:Button name="copy-diagnostics" text="Copy" class="button-secondary" />
+                        <ui:Button name="copy-diagnostics" text="Copy diagnostics" class="button-secondary" />
                     </ui:VisualElement>
-                    <ui:TextField name="diagnostics" multiline="true" is-read-only="true" class="diagnostics-field" />
+                    <ui:TextField name="diagnostics" label="Diagnostic log" multiline="true" is-read-only="true" class="diagnostics-field" />
                 </ui:VisualElement>
             </ui:Foldout>
         </ui:VisualElement>

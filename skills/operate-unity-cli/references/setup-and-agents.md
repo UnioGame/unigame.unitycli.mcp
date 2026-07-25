@@ -17,8 +17,9 @@
    exists and can be switched off.
 4. Keep stdio selected unless a shared endpoint is required.
 5. Enable the project-local skill.
-6. Choose **Review** and inspect every enable, disable, and target inline.
-7. Choose **Apply** only after user confirmation.
+6. Choose **Preview changes** and inspect every enable, disable, and target
+   inline.
+7. Choose **Apply preview** only after user confirmation.
 8. Restart clients listed by the result and call
    `unity_connection_status`.
 
@@ -28,7 +29,9 @@ Center.
 ## Managed locations
 
 Each private registration is named
-`unigameUnityCli_<project>_<path-hash>` and pins `UNITY_PROJECT_PATH`.
+`unity_cli_mcp` without a project environment variable. Open Editors publish
+short-lived metadata under the user-local `unity-cli-mcp/registry/editors`
+registry; tool calls select the intended live instance.
 The server bundle lives in stable user-local UniGame data, not UPM cache or
 Unity `Library`.
 
@@ -39,35 +42,40 @@ copies from user-owned content.
 ## Lifecycle
 
 - **Refresh** reads state only.
-- **Review** lists files, processes, conflicts, pending agent toggles, and restart
-  requirements without mutation.
-- **Apply** creates a backup, performs atomic managed writes, and
+- **Preview changes** lists files, processes, conflicts, pending agent toggles,
+  and restart requirements without mutation.
+- **Apply preview** creates a backup, performs atomic managed writes, and
   restores missing managed state.
 - **Remove** is available under Advanced and removes only
   fingerprinted registrations and selected skill copies.
 - **Rollback** appears under Advanced only when a backup is available.
 
-Force is shown only after Review detects a conflict. Never enable it before
-inspecting the same-name user configuration.
+An unknown user-owned `unity_cli_mcp` entry is preserved by default. Replace it
+only through a reviewed Apply with explicit `force` authorization.
 
 ## HTTP
 
 stdio is agent-owned and recommended. Optional Streamable HTTP binds to
 `127.0.0.1`, validates Host and Origin, and protects both health and MCP with a
-capability-file reference. The state file records the server and owner Editor
-PIDs.
+capability-file reference. Each Editor owns only its
+`broker-leases/<editor_instance_id>.json` lease.
 
-Start or stop HTTP from **Advanced**. The owner Editor stops HTTP during
-shutdown. If an Editor crashed, refresh status to detect the stale ownership,
-then use the contextual HTTP action or reapply the reviewed configuration. Do
-not expose this endpoint on a LAN or public interface.
+Start or stop HTTP from **Advanced**. Closing one Editor removes only its lease;
+the shared broker remains for other live leases, then waits ten seconds after
+the last lease before stopping unless keep-alive is enabled. Do not expose this
+endpoint on a LAN or public interface.
+
+With an automatically assigned port, start HTTP first, refresh until the actual
+endpoint appears, then preview and apply agent registrations. With a fixed free
+port, registration may be applied before startup. The manager returns
+`HTTP_ENDPOINT_NOT_READY` instead of persisting port `0`.
 
 ## Recovery
 
 - `CLI_NOT_FOUND`: install Unity CLI or set `UNITY_CLI_PATH`.
 - Node missing/old: install Node 20+; the package does not alter the runtime.
-- `CONFLICT`: inspect the unmanaged same-name entry, then rename it or
-  explicitly force the managed replacement.
+- `CONFLICT`: inspect and rename the unmanaged entry, or explicitly authorize
+  the reviewed `force` replacement.
 - Missing Editor tools: install Pipeline, open the target project normally,
   wait for compilation, and refresh schemas.
 - Stale HTTP state: stop the recorded process if still alive, then start it

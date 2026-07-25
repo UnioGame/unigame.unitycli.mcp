@@ -6,7 +6,12 @@ export type ToolkitErrorCode =
   | "CONFIRMATION_REQUIRED"
   | "TIMEOUT"
   | "UPSTREAM_FAILED"
-  | "INVALID_OUTPUT";
+  | "INVALID_OUTPUT"
+  | "TARGET_REQUIRED"
+  | "TARGET_NOT_FOUND"
+  | "TARGET_AMBIGUOUS"
+  | "TARGET_STALE"
+  | "TARGET_NOT_READY";
 
 export class ToolkitError extends Error {
   public constructor(

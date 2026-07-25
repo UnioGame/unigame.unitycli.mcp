@@ -5,7 +5,12 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { executeSetup } from "../src/setup/manager.js";
-import { patchServerJsonc } from "../src/setup/config.js";
+import {
+  fingerprint,
+  managedTomlBlock,
+  managedTomlFingerprint,
+  patchServerJsonc,
+} from "../src/setup/config.js";
 import { projectServerName } from "../src/setup/project.js";
 
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
@@ -124,7 +129,7 @@ describe("setup manager", () => {
       confirm: true,
     });
     expect(rollback.ok).toBe(true);
-    expect(await readFile(cursorPath, "utf8")).toContain(projectServerName(paths.projectPath));
+    expect(await readFile(cursorPath, "utf8")).toContain("unity_cli_mcp");
   });
 
   it("requires confirmation before mutations", async () => {
@@ -138,6 +143,72 @@ describe("setup manager", () => {
     });
     expect(result.ok).toBe(false);
     expect(result.errors).toContain("CONFIRMATION_REQUIRED");
+  });
+
+  it("does not register an HTTP endpoint before a port is assigned", async () => {
+    const paths = await fixture();
+    const request = {
+      projectPath: paths.projectPath,
+      packageRoot,
+      homePath: paths.homePath,
+      dataPath: paths.dataPath,
+      agents: ["cursor"] as const,
+      installServer: true,
+      installSkill: false,
+      transport: "http" as const,
+    };
+    const plan = await executeSetup({
+      operation: "plan",
+      ...request,
+      agents: [...request.agents],
+    });
+    expect(plan.ok).toBe(true);
+    expect(plan.warnings).toContain(
+      "HTTP_ENDPOINT_NOT_READY: start the shared broker first or choose a fixed port before Apply.",
+    );
+
+    const apply = await executeSetup({
+      operation: "apply",
+      ...request,
+      agents: [...request.agents],
+      confirm: true,
+    });
+    expect(apply.ok).toBe(false);
+    expect(apply.errors.join("\n")).toContain("HTTP_ENDPOINT_NOT_READY");
+    expect(existsSync(join(paths.homePath, ".cursor", "mcp.json"))).toBe(false);
+    expect(existsSync(join(paths.dataPath, "unity-cli-mcp", "current.json"))).toBe(false);
+    expect(existsSync(join(paths.dataPath, "unity-cli-mcp", "http-token"))).toBe(false);
+  });
+
+  it("previews repair without mutation and applies only when confirmed", async () => {
+    const paths = await fixture();
+    const base = {
+      projectPath: paths.projectPath,
+      packageRoot,
+      homePath: paths.homePath,
+      dataPath: paths.dataPath,
+      agents: ["cursor"] as const,
+      installServer: false,
+      installSkill: false,
+    };
+    const preview = await executeSetup({
+      operation: "repair",
+      ...base,
+      agents: [...base.agents],
+    });
+    expect(preview.ok).toBe(true);
+    expect(preview.operation).toBe("repair");
+    expect(existsSync(join(paths.homePath, ".cursor", "mcp.json"))).toBe(false);
+
+    const applied = await executeSetup({
+      operation: "repair",
+      ...base,
+      agents: [...base.agents],
+      confirm: true,
+    });
+    expect(applied.ok).toBe(true);
+    expect(await readFile(join(paths.homePath, ".cursor", "mcp.json"), "utf8"))
+      .toContain("unity_cli_mcp");
   });
 
   it("plans and applies mixed enable and disable state", async () => {
@@ -183,7 +254,8 @@ describe("setup manager", () => {
     const codex = await readFile(join(paths.homePath, ".codex", "config.toml"), "utf8");
     const cursor = await readFile(join(paths.homePath, ".cursor", "mcp.json"), "utf8");
     expect(codex).not.toContain(projectServerName(paths.projectPath));
-    expect(cursor).toContain(projectServerName(paths.projectPath));
+    expect(cursor).toContain("unity_cli_mcp");
+    expect(cursor).not.toContain("UNITY_PROJECT_PATH");
   });
 
   it("reports configured and conflict state in probe", async () => {
@@ -259,5 +331,225 @@ describe("setup manager", () => {
     const cursorPath = join(paths.homePath, ".cursor", "mcp.json");
     expect(existsSync(cursorPath)).toBe(false);
     expect(await readFile(join(skillPath, "SKILL.md"), "utf8")).toBe("user-owned");
+  });
+
+  it("migrates only fingerprinted legacy project registrations to one global entry", async () => {
+    const paths = await fixture();
+    const cursorPath = join(paths.homePath, ".cursor", "mcp.json");
+    const legacyName = projectServerName(paths.projectPath);
+    const legacyValue = {
+      command: process.execPath,
+      args: ["legacy-server.js"],
+      env: { UNITY_PROJECT_PATH: paths.projectPath },
+    };
+    await mkdir(dirname(cursorPath), { recursive: true });
+    await writeFile(
+      cursorPath,
+      JSON.stringify({ mcpServers: { [legacyName]: legacyValue } }),
+    );
+    const markerPath = join(
+      paths.dataPath,
+      "unity-cli-mcp",
+      "registrations",
+      `${legacyName}.cursor.json`,
+    );
+    await mkdir(dirname(markerPath), { recursive: true });
+    await writeFile(markerPath, JSON.stringify({
+      managedBy: "com.unigame.unitycli.mcp",
+      serverName: legacyName,
+      fingerprint: fingerprint(legacyValue),
+    }));
+
+    const applied = await executeSetup({
+      operation: "apply",
+      projectPath: paths.projectPath,
+      packageRoot,
+      homePath: paths.homePath,
+      dataPath: paths.dataPath,
+      agents: ["cursor"],
+      installServer: true,
+      installSkill: false,
+      confirm: true,
+    });
+
+    expect(applied.ok, applied.errors.join("\n")).toBe(true);
+    const migrated = await readFile(cursorPath, "utf8");
+    expect(migrated).toContain('"unity_cli_mcp"');
+    expect(migrated).not.toContain(legacyName);
+    expect(migrated).not.toContain("UNITY_PROJECT_PATH");
+    expect(existsSync(markerPath)).toBe(false);
+  });
+
+  it("preserves an unknown user-owned global same-name registration", async () => {
+    const paths = await fixture();
+    const cursorPath = join(paths.homePath, ".cursor", "mcp.json");
+    const original = JSON.stringify({
+      mcpServers: { unity_cli_mcp: { command: "user-owned" } },
+    }, null, 2);
+    await mkdir(dirname(cursorPath), { recursive: true });
+    await writeFile(cursorPath, original);
+
+    const applied = await executeSetup({
+      operation: "apply",
+      projectPath: paths.projectPath,
+      packageRoot,
+      homePath: paths.homePath,
+      dataPath: paths.dataPath,
+      agents: ["cursor"],
+      installServer: false,
+      installSkill: false,
+      confirm: true,
+    });
+
+    expect(applied.ok).toBe(false);
+    expect(applied.errors).toContain("CONFLICT:cursor");
+    expect(await readFile(cursorPath, "utf8")).toBe(original);
+  });
+
+  it("replaces an unmanaged same-name registration only with explicit force and confirmation", async () => {
+    const paths = await fixture();
+    const cursorPath = join(paths.homePath, ".cursor", "mcp.json");
+    await mkdir(dirname(cursorPath), { recursive: true });
+    await writeFile(cursorPath, JSON.stringify({
+      mcpServers: { unity_cli_mcp: { command: "user-owned" } },
+    }));
+    const result = await executeSetup({
+      operation: "apply",
+      projectPath: paths.projectPath,
+      packageRoot,
+      homePath: paths.homePath,
+      dataPath: paths.dataPath,
+      agents: ["cursor"],
+      installServer: true,
+      installSkill: false,
+      confirm: true,
+      force: true,
+    });
+    expect(result.ok, result.errors.join("\n")).toBe(true);
+    const replaced = await readFile(cursorPath, "utf8");
+    expect(replaced).toContain("unity_cli_mcp");
+    expect(replaced).not.toContain("user-owned");
+  });
+
+  it("requires confirmation before deleting only the requested broker lease", async () => {
+    const paths = await fixture();
+    const leaseDirectory = join(paths.dataPath, "unity-cli-mcp", "broker-leases");
+    await mkdir(leaseDirectory, { recursive: true });
+    const leasePath = join(leaseDirectory, "editor-one.json");
+    await writeFile(leasePath, JSON.stringify({ keep: true }));
+    const base = {
+      operation: "serve" as const,
+      projectPath: paths.projectPath,
+      packageRoot,
+      homePath: paths.homePath,
+      dataPath: paths.dataPath,
+      editorInstanceId: "editor-one",
+      stop: true,
+    };
+    const rejected = await executeSetup(base);
+    expect(rejected.ok).toBe(false);
+    expect(rejected.errors).toContain("CONFIRMATION_REQUIRED");
+    expect(existsSync(leasePath)).toBe(true);
+    const stopped = await executeSetup({ ...base, confirm: true });
+    expect(stopped.ok).toBe(true);
+    expect(existsSync(leasePath)).toBe(false);
+  });
+
+  it("rejects an external HTTP lease without stable Editor owner identity", async () => {
+    const paths = await fixture();
+    const base = {
+      operation: "serve" as const,
+      projectPath: paths.projectPath,
+      packageRoot,
+      homePath: paths.homePath,
+      dataPath: paths.dataPath,
+      ownerPid: 2_147_483_647,
+      confirm: true,
+    };
+
+    const missingInstance = await executeSetup(base);
+    expect(missingInstance.ok).toBe(false);
+    expect(missingInstance.errors).toContain(
+      "editorInstanceId is required for an external HTTP lease",
+    );
+
+    const missingStart = await executeSetup({
+      ...base,
+      editorInstanceId: "10000000-0000-4000-8000-000000000001",
+    });
+    expect(missingStart.ok).toBe(false);
+    expect(missingStart.errors).toContain(
+      "ownerStartedAtUtc is required for an external HTTP lease",
+    );
+  });
+
+  it("treats a modified managed TOML block as user-owned and preserves it", async () => {
+    const paths = await fixture();
+    const base = {
+      projectPath: paths.projectPath,
+      packageRoot,
+      homePath: paths.homePath,
+      dataPath: paths.dataPath,
+      agents: ["codex"] as const,
+      installServer: true,
+      installSkill: false,
+    };
+    const applied = await executeSetup({
+      operation: "apply", ...base, agents: [...base.agents], confirm: true,
+    });
+    expect(applied.ok).toBe(true);
+    const path = join(paths.homePath, ".codex", "config.toml");
+    const modified = (await readFile(path, "utf8"))
+      .replace(/^command\s*=.*$/m, 'command = "user-modified"');
+    await writeFile(path, modified);
+    const probe = await executeSetup({ operation: "probe", ...base });
+    const codex = (probe.data.agents as Array<{
+      id: string; configured: boolean; conflict: boolean;
+    }>).find((entry) => entry.id === "codex");
+    expect(codex).toMatchObject({ configured: false, conflict: true });
+    const removed = await executeSetup({
+      operation: "remove", ...base, agents: [...base.agents], confirm: true,
+    });
+    expect(removed.ok).toBe(true);
+    expect(await readFile(path, "utf8")).toContain("user-modified");
+  });
+
+  it("migrates a valid fingerprinted legacy TOML block", async () => {
+    const paths = await fixture();
+    const legacyName = projectServerName(paths.projectPath);
+    const value = {
+      command: process.execPath,
+      args: ["legacy-server.js"],
+      env: { UNITY_PROJECT_PATH: paths.projectPath },
+    };
+    const configPath = join(paths.homePath, ".codex", "config.toml");
+    const block = managedTomlBlock(legacyName, value);
+    expect(managedTomlFingerprint(block, legacyName)).toBe(fingerprint(value));
+    await mkdir(dirname(configPath), { recursive: true });
+    await writeFile(configPath, block);
+    const markerPath = join(
+      paths.dataPath, "unity-cli-mcp", "registrations", `${legacyName}.codex.json`,
+    );
+    await mkdir(dirname(markerPath), { recursive: true });
+    await writeFile(markerPath, JSON.stringify({
+      managedBy: "com.unigame.unitycli.mcp",
+      serverName: legacyName,
+      fingerprint: fingerprint(value),
+    }));
+    const result = await executeSetup({
+      operation: "apply",
+      projectPath: paths.projectPath,
+      packageRoot,
+      homePath: paths.homePath,
+      dataPath: paths.dataPath,
+      agents: ["codex"],
+      installServer: true,
+      installSkill: false,
+      confirm: true,
+    });
+    expect(result.ok, result.errors.join("\n")).toBe(true);
+    const migrated = await readFile(configPath, "utf8");
+    expect(migrated).toContain("unity_cli_mcp");
+    expect(migrated).not.toContain(legacyName);
   });
 });

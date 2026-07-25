@@ -12,6 +12,7 @@
     "build",
     "dist",
     "catalogs",
+    "schemas",
     "README.md"
   ],
   "scripts": {

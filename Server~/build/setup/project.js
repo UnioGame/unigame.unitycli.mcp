@@ -45,7 +45,8 @@ export function createContext(request) {
         homePath,
         dataPath,
         installRoot: join(dataPath, "unity-cli-mcp"),
-        serverName: projectServerName(projectPath),
+        serverName: "unity_cli_mcp",
+        legacyServerName: projectServerName(projectPath),
     };
 }
 //# sourceMappingURL=project.js.map

@@ -116,6 +116,70 @@ export function patchManagedToml(
   return `${base.trimEnd()}${base.trim() && block ? "\n\n" : ""}${block}`;
 }
 
+export function managedTomlFingerprint(
+  text: string,
+  name: string,
+): string | null {
+  const begin = `# ${managedMarker}:${name}:begin`;
+  const end = `# ${managedMarker}:${name}:end`;
+  const start = text.indexOf(begin);
+  const finish = text.indexOf(end, start + begin.length);
+  if (start < 0 || finish < 0) return null;
+  const block = text.slice(start, finish + end.length);
+  const url = scalar(block, "url");
+  if (url !== null) {
+    return fingerprint({
+      type: "http",
+      url,
+      headers: inlineTable(block, "http_headers"),
+    });
+  }
+  const command = scalar(block, "command");
+  const argsMatch = block.match(/^args\s*=\s*(\[[^\r\n]*\])/m);
+  if (command === null || !argsMatch) return null;
+  let args: string[];
+  try {
+    args = JSON.parse(argsMatch[1]) as string[];
+  } catch {
+    return null;
+  }
+  return fingerprint({
+    command,
+    args,
+    env: inlineTable(block, "env"),
+  });
+}
+
+function scalar(block: string, key: string): string | null {
+  const match = block.match(new RegExp(`^${key}\\s*=\\s*("(?:\\\\.|[^"])*")`, "m"));
+  if (!match) return null;
+  try {
+    return JSON.parse(match[1]) as string;
+  } catch {
+    return null;
+  }
+}
+
+function inlineTable(block: string, key: string): Record<string, string> {
+  const match = block.match(new RegExp(`^${key}\\s*=\\s*\\{([^\\r\\n]*)\\}`, "m"));
+  if (!match) return {};
+  const result: Record<string, string> = {};
+  const entries = match[1].matchAll(
+    /("(?:\\.|[^"])*"|[A-Za-z_][A-Za-z0-9_-]*)\s*=\s*("(?:\\.|[^"])*")/g,
+  );
+  for (const entry of entries) {
+    try {
+      const keyName = entry[1].startsWith('"')
+        ? JSON.parse(entry[1]) as string
+        : entry[1];
+      result[keyName] = JSON.parse(entry[2]) as string;
+    } catch {
+      return {};
+    }
+  }
+  return result;
+}
+
 function quote(value: string): string {
   return JSON.stringify(value);
 }

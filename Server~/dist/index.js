@@ -2235,8 +2235,8 @@ var require_resolve = __commonJS({
       }
       return count;
     }
-    function getFullPath(resolver, id = "", normalize) {
-      if (normalize !== false)
+    function getFullPath(resolver, id = "", normalize2) {
+      if (normalize2 !== false)
         id = normalizeId(id);
       const p = resolver.parse(id);
       return _getFullPath(resolver, p);
@@ -2984,7 +2984,7 @@ var require_compile = __commonJS({
       const schOrFunc = root.refs[ref];
       if (schOrFunc)
         return schOrFunc;
-      let _sch = resolve.call(this, root, ref);
+      let _sch = resolve2.call(this, root, ref);
       if (_sch === void 0) {
         const schema = (_a3 = root.localRefs) === null || _a3 === void 0 ? void 0 : _a3[ref];
         const { schemaId } = this.opts;
@@ -3011,7 +3011,7 @@ var require_compile = __commonJS({
     function sameSchemaEnv(s1, s2) {
       return s1.schema === s2.schema && s1.root === s2.root && s1.baseId === s2.baseId;
     }
-    function resolve(root, ref) {
+    function resolve2(root, ref) {
       let sch;
       while (typeof (sch = this.refs[ref]) == "string")
         ref = sch;
@@ -3632,7 +3632,7 @@ var require_fast_uri = __commonJS({
     "use strict";
     var { normalizeIPv6, removeDotSegments, recomposeAuthority, normalizePercentEncoding, normalizePathEncoding, escapePreservingEscapes, reescapeHostDelimiters, isIPv4, nonSimpleDomain } = require_utils();
     var { SCHEMES, getSchemeHandler } = require_schemes();
-    function normalize(uri, options) {
+    function normalize2(uri, options) {
       if (typeof uri === "string") {
         uri = /** @type {T} */
         normalizeString(uri, options);
@@ -3642,7 +3642,7 @@ var require_fast_uri = __commonJS({
       }
       return uri;
     }
-    function resolve(baseURI, relativeURI, options) {
+    function resolve2(baseURI, relativeURI, options) {
       const schemelessOptions = options ? Object.assign({ scheme: "null" }, options) : { scheme: "null" };
       const resolved = resolveComponent(parse3(baseURI, schemelessOptions), parse3(relativeURI, schemelessOptions), schemelessOptions, true);
       schemelessOptions.skipEscape = true;
@@ -3905,8 +3905,8 @@ var require_fast_uri = __commonJS({
     }
     var fastUri = {
       SCHEMES,
-      normalize,
-      resolve,
+      normalize: normalize2,
+      resolve: resolve2,
       resolveComponent,
       equal,
       serialize: serialize2,
@@ -13704,12 +13704,12 @@ var StdioServerTransport = class {
     this.onclose?.();
   }
   send(message) {
-    return new Promise((resolve) => {
+    return new Promise((resolve2) => {
       const json2 = serializeMessage(message);
       if (this._stdout.write(json2)) {
-        resolve();
+        resolve2();
       } else {
-        this._stdout.once("drain", resolve);
+        this._stdout.once("drain", resolve2);
       }
     });
   }
@@ -14307,7 +14307,7 @@ var Protocol = class {
           return;
         }
         const pollInterval = task2.pollInterval ?? this._options?.defaultTaskPollInterval ?? 1e3;
-        await new Promise((resolve) => setTimeout(resolve, pollInterval));
+        await new Promise((resolve2) => setTimeout(resolve2, pollInterval));
         options?.signal?.throwIfAborted();
       }
     } catch (error2) {
@@ -14324,7 +14324,7 @@ var Protocol = class {
    */
   request(request, resultSchema, options) {
     const { relatedRequestId, resumptionToken, onresumptiontoken, task, relatedTask } = options ?? {};
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve2, reject) => {
       const earlyReject = (error2) => {
         reject(error2);
       };
@@ -14402,7 +14402,7 @@ var Protocol = class {
           if (!parseResult.success) {
             reject(parseResult.error);
           } else {
-            resolve(parseResult.data);
+            resolve2(parseResult.data);
           }
         } catch (error2) {
           reject(error2);
@@ -14663,12 +14663,12 @@ var Protocol = class {
       }
     } catch {
     }
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve2, reject) => {
       if (signal.aborted) {
         reject(new McpError(ErrorCode.InvalidRequest, "Request cancelled"));
         return;
       }
-      const timeoutId = setTimeout(resolve, interval);
+      const timeoutId = setTimeout(resolve2, interval);
       signal.addEventListener("abort", () => {
         clearTimeout(timeoutId);
         reject(new McpError(ErrorCode.InvalidRequest, "Request cancelled"));
@@ -15458,9 +15458,9 @@ var Server = class extends Protocol {
 };
 
 // src/server.ts
-import { dirname as dirname2, join as join2 } from "node:path";
+import { dirname as dirname2, join as join3 } from "node:path";
 import { fileURLToPath as fileURLToPath2 } from "node:url";
-import { readFile as readFile3 } from "node:fs/promises";
+import { readFile as readFile4 } from "node:fs/promises";
 
 // src/catalog.ts
 import { access, readFile as readFile2 } from "node:fs/promises";
@@ -15600,10 +15600,23 @@ function inputSchema(tool) {
     properties[parameter.name] = parameterSchema(parameter);
     if (parameter.required) required2.push(parameter.name);
   }
-  if (tool.source === "editor" && !properties.projectPath) {
+  if (tool.source === "editor") {
+    properties.editor_instance_id = {
+      type: "string",
+      description: "Exact Editor session UUID. Highest-priority selector."
+    };
+    properties.project_id = {
+      type: "string",
+      description: "Stable SHA-256 identifier of the normalized absolute project path."
+    };
+    properties.project_path = {
+      type: "string",
+      description: "Absolute Unity project path."
+    };
     properties.projectPath = {
       type: "string",
-      description: "Absolute Unity project path. Defaults to UNITY_PROJECT_PATH."
+      deprecated: true,
+      description: "Deprecated alias for project_path. UNITY_PROJECT_PATH remains a one-release fallback."
     };
   }
   if (tool.source === "player") {
@@ -15702,6 +15715,9 @@ function versionMismatchWarning(expected, installed) {
 // src/arguments.ts
 var metaNames = /* @__PURE__ */ new Set([
   "projectPath",
+  "project_path",
+  "project_id",
+  "editor_instance_id",
   "runtimePath",
   "runtime",
   "timeoutMs",
@@ -15738,7 +15754,7 @@ function buildArguments(tool, input) {
   if (tool.source === "cli") {
     args.push(...tool.command);
   } else if (tool.source === "editor") {
-    target = input.projectPath ?? process.env.UNITY_PROJECT_PATH ?? null;
+    target = input.project_path ?? input.projectPath ?? process.env.UNITY_PROJECT_PATH ?? null;
     args.push("command");
     if (target) args.push("--project-path", target);
     args.push("--format", "json", tool.name);
@@ -15868,7 +15884,7 @@ function runProcess(executable, args, options = {}) {
   const started = Date.now();
   const timeoutMs = options.timeoutMs ?? 3e4;
   const maxOutputBytes = options.maxOutputBytes ?? 1e6;
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve2, reject) => {
     const child = spawn(executable, args, {
       cwd: options.cwd,
       env: options.env,
@@ -15914,7 +15930,7 @@ function runProcess(executable, args, options = {}) {
       settled = true;
       clearTimeout(timer);
       options.signal?.removeEventListener("abort", abort);
-      resolve({
+      resolve2({
         exitCode,
         signal,
         stdout: Buffer.concat(stdout).toString("utf8"),
@@ -15934,6 +15950,227 @@ function requireConfirmation(tool, input) {
       `${tool.toolName} is classified as high risk. Retry with confirm=true after explicit authorization.`
     );
   }
+}
+
+// src/editor-registry.ts
+import { createHash } from "node:crypto";
+import { readdir, readFile as readFile3, stat } from "node:fs/promises";
+import { isAbsolute, join as join2, normalize, resolve } from "node:path";
+import { homedir } from "node:os";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+var editorMetadataSchemaVersion = 1;
+var editorLeaseExpiryMs = 1e4;
+var metadataKeys = /* @__PURE__ */ new Set([
+  "schema_version",
+  "metadata_revision",
+  "project_id",
+  "project_name",
+  "project_path",
+  "editor_instance_id",
+  "editor_pid",
+  "editor_started_at_utc",
+  "editor_version",
+  "package_version",
+  "pipeline_version",
+  "connection_state",
+  "heartbeat_at_utc",
+  "lease_expires_at_utc",
+  "pipeline_descriptor_path",
+  "capability_catalog_hash",
+  "tool_count",
+  "is_playing",
+  "is_compiling",
+  "compile_errors_count"
+]);
+var stringKeys = [
+  "project_id",
+  "project_name",
+  "project_path",
+  "editor_instance_id",
+  "editor_started_at_utc",
+  "editor_version",
+  "package_version",
+  "pipeline_version",
+  "connection_state",
+  "heartbeat_at_utc",
+  "lease_expires_at_utc",
+  "pipeline_descriptor_path",
+  "capability_catalog_hash"
+];
+function defaultDataPath() {
+  if (process.env.UNIGAME_UNITYCLI_DATA_PATH)
+    return resolve(process.env.UNIGAME_UNITYCLI_DATA_PATH);
+  if (process.platform === "win32")
+    return join2(process.env.LOCALAPPDATA ?? homedir(), "UniGame");
+  return join2(homedir(), ".local", "share", "unigame");
+}
+function normalizeProjectPath(path) {
+  let value2 = normalize(resolve(path)).replaceAll("\\", "/");
+  if (process.platform === "win32") value2 = value2.toLowerCase();
+  return value2.replace(/\/+$/, "");
+}
+function projectId(path) {
+  return createHash("sha256").update(normalizeProjectPath(path)).digest("hex");
+}
+function validateEditorMetadata(value2) {
+  if (!value2 || typeof value2 !== "object" || Array.isArray(value2))
+    throw new Error("metadata must be an object");
+  const object3 = value2;
+  for (const key of Object.keys(object3))
+    if (!metadataKeys.has(key))
+      throw new Error(`additional property is not allowed: ${key}`);
+  for (const key of metadataKeys)
+    if (!(key in object3)) throw new Error(`required property is missing: ${key}`);
+  if (object3.schema_version !== editorMetadataSchemaVersion)
+    throw new Error(`unsupported schema_version: ${String(object3.schema_version)}`);
+  for (const key of stringKeys)
+    if (typeof object3[key] !== "string" || !object3[key])
+      throw new Error(`${key} must be a non-empty string`);
+  for (const key of ["metadata_revision", "editor_pid", "tool_count", "compile_errors_count"])
+    if (!Number.isInteger(object3[key]) || Number(object3[key]) < 0)
+      throw new Error(`${key} must be a non-negative integer`);
+  if (Number(object3.editor_pid) < 1)
+    throw new Error("editor_pid must be a positive integer");
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(object3.editor_instance_id)))
+    throw new Error("editor_instance_id must be a UUID");
+  for (const key of ["is_playing", "is_compiling"])
+    if (typeof object3[key] !== "boolean") throw new Error(`${key} must be a boolean`);
+  for (const key of ["editor_started_at_utc", "heartbeat_at_utc", "lease_expires_at_utc"])
+    if (!Number.isFinite(Date.parse(String(object3[key]))))
+      throw new Error(`${key} must be an ISO timestamp`);
+  if (!isAbsolute(String(object3.project_path)) || projectId(String(object3.project_path)) !== object3.project_id)
+    throw new Error("project_id does not match normalized project_path");
+  if (!isAbsolute(String(object3.pipeline_descriptor_path)))
+    throw new Error("pipeline_descriptor_path must be absolute");
+  return object3;
+}
+var execFileAsync = promisify(execFile);
+async function processMatchesStart(pid, startedAtUtc) {
+  try {
+    process.kill(pid, 0);
+    let output;
+    if (process.platform === "win32") {
+      const result = await execFileAsync(
+        "powershell.exe",
+        [
+          "-NoProfile",
+          "-NonInteractive",
+          "-Command",
+          `(Get-Process -Id ${pid} -ErrorAction Stop).StartTime.ToUniversalTime().ToString('O')`
+        ],
+        { windowsHide: true, timeout: 2e3 }
+      );
+      output = result.stdout.trim();
+    } else {
+      const result = await execFileAsync(
+        "ps",
+        ["-o", "lstart=", "-p", String(pid)],
+        { timeout: 2e3 }
+      );
+      output = result.stdout.trim();
+    }
+    const actual = Date.parse(output);
+    const claimed = Date.parse(startedAtUtc);
+    return Number.isFinite(actual) && Number.isFinite(claimed) && Math.abs(actual - claimed) <= 2e3;
+  } catch {
+    return false;
+  }
+}
+async function defaultProcessMatches(metadata) {
+  return processMatchesStart(metadata.editor_pid, metadata.editor_started_at_utc);
+}
+async function descriptorIsReadable(metadata) {
+  try {
+    const details = await stat(metadata.pipeline_descriptor_path);
+    return details.isFile() && details.size > 0;
+  } catch {
+    return false;
+  }
+}
+async function discoverEditors(options = {}) {
+  const root = join2(options.dataPath ?? defaultDataPath(), "unity-cli-mcp", "registry", "editors");
+  const snapshot = {
+    active_editors: [],
+    stale_editors: [],
+    corrupt_entries: []
+  };
+  let projectDirectories;
+  try {
+    projectDirectories = await readdir(root, { withFileTypes: true });
+  } catch {
+    return snapshot;
+  }
+  const now = (options.now ?? /* @__PURE__ */ new Date()).getTime();
+  const processMatches = options.processMatches ?? defaultProcessMatches;
+  for (const projectDirectory of projectDirectories) {
+    if (!projectDirectory.isDirectory()) continue;
+    const projectRoot = join2(root, projectDirectory.name);
+    let files;
+    try {
+      files = await readdir(projectRoot, { withFileTypes: true });
+    } catch (error2) {
+      snapshot.corrupt_entries.push({ path: projectRoot, error: String(error2) });
+      continue;
+    }
+    for (const file of files) {
+      if (!file.isFile() || !file.name.endsWith(".json")) continue;
+      const path = join2(projectRoot, file.name);
+      let metadata;
+      try {
+        metadata = validateEditorMetadata(JSON.parse(await readFile3(path, "utf8")));
+        if (projectDirectory.name !== metadata.project_id || file.name !== `${metadata.editor_instance_id}.json`)
+          throw new Error("registry path does not match metadata identity");
+      } catch (error2) {
+        snapshot.corrupt_entries.push({
+          path,
+          error: error2 instanceof Error ? error2.message : String(error2)
+        });
+        continue;
+      }
+      let staleReason = "";
+      if (Date.parse(metadata.lease_expires_at_utc) <= now || now - Date.parse(metadata.heartbeat_at_utc) > editorLeaseExpiryMs)
+        staleReason = "lease_expired";
+      else if (!await processMatches(metadata))
+        staleReason = "editor_process_mismatch";
+      else if (metadata.connection_state === "ready" && !await descriptorIsReadable(metadata))
+        staleReason = "pipeline_descriptor_unavailable";
+      if (staleReason)
+        snapshot.stale_editors.push({ ...metadata, stale_reason: staleReason });
+      else
+        snapshot.active_editors.push(metadata);
+    }
+  }
+  snapshot.active_editors.sort((a, b) => a.project_id.localeCompare(b.project_id) || a.editor_instance_id.localeCompare(b.editor_instance_id));
+  return snapshot;
+}
+function matchesPath(editor, path) {
+  return normalizeProjectPath(editor.project_path) === normalizeProjectPath(path);
+}
+async function resolveEditor(selectors, options = {}) {
+  const snapshot = await discoverEditors(options);
+  const fallbackPath = process.env.UNITY_PROJECT_PATH;
+  let candidates = snapshot.active_editors;
+  let stale = snapshot.stale_editors;
+  const selector = selectors.editor_instance_id ? ["editor_instance_id", selectors.editor_instance_id] : selectors.project_id ? ["project_id", selectors.project_id] : selectors.project_path ? ["project_path", selectors.project_path] : selectors.projectPath ? ["project_path", selectors.projectPath] : fallbackPath ? ["project_path", fallbackPath] : null;
+  if (selector) {
+    const [key, value2] = selector;
+    const predicate = key === "project_path" ? (editor) => matchesPath(editor, value2) : (editor) => editor[key] === value2;
+    candidates = candidates.filter(predicate);
+    stale = stale.filter(predicate);
+  }
+  const matching = candidates;
+  candidates = matching.filter((editor) => editor.connection_state === "ready");
+  if (candidates.length === 1) return candidates[0];
+  if (candidates.length > 1)
+    throw new ToolkitError("TARGET_AMBIGUOUS", "Multiple ready Unity Editors match the selector.", candidates);
+  if (matching.length)
+    throw new ToolkitError("TARGET_NOT_READY", "The selected Unity Editor is not ready.", matching);
+  if (stale.length)
+    throw new ToolkitError("TARGET_STALE", "The selected Unity Editor lease is stale.", stale);
+  if (selector)
+    throw new ToolkitError("TARGET_NOT_FOUND", "No Unity Editor matches the selector.");
+  throw new ToolkitError("TARGET_REQUIRED", "Select an Editor with editor_instance_id, project_id, or project_path.");
 }
 
 // src/executor.ts
@@ -15956,9 +16193,22 @@ function connectionFailure(tool, text) {
   }
   return null;
 }
-async function executeCatalogTool(tool, input, signal) {
+async function executeCatalogTool(tool, input, signal, registryOptions) {
   requireConfirmation(tool, input);
   const resolvedInput = await resolveSecretInputs(tool, input);
+  if (tool.source === "editor") {
+    const editor = await resolveEditor(
+      {
+        editor_instance_id: input.editor_instance_id,
+        project_id: input.project_id,
+        project_path: input.project_path,
+        projectPath: input.projectPath
+      },
+      registryOptions
+    );
+    resolvedInput.project_path = editor.project_path;
+    delete resolvedInput.projectPath;
+  }
   const cli = await resolveUnityCli();
   if (!cli) {
     throw new ToolkitError(
@@ -16053,8 +16303,8 @@ function mergeLiveSchemas(snapshot, liveTools) {
 }
 
 // src/server.ts
-var packageRoot = process.env.UNIGAME_UNITYCLI_ROOT ?? join2(dirname2(fileURLToPath2(import.meta.url)), "..", "..");
-var capabilityPath = join2(
+var packageRoot = process.env.UNIGAME_UNITYCLI_ROOT ?? join3(dirname2(fileURLToPath2(import.meta.url)), "..", "..");
+var capabilityPath = join3(
   packageRoot,
   "Documentation~",
   "unity-cli-capabilities.md"
@@ -16069,7 +16319,14 @@ var serviceSchemas = {
   unity_connection_status: {
     type: "object",
     properties: {
-      projectPath: { type: "string" },
+      editor_instance_id: { type: "string" },
+      project_id: { type: "string" },
+      project_path: { type: "string" },
+      projectPath: {
+        type: "string",
+        deprecated: true,
+        description: "Deprecated alias for project_path."
+      },
       runtimePath: { type: "string" },
       timeoutMs: { type: "integer", minimum: 100, maximum: 12e4 }
     },
@@ -16104,6 +16361,17 @@ async function cliVersion() {
   const installed = result.exitCode === 0 ? result.stdout.trim() : null;
   return { path, installed, matches: installed === expectedCliVersion };
 }
+function selectSchemaRefreshEditor(snapshot) {
+  const ready = snapshot.active_editors.filter(
+    (editor) => editor.connection_state === "ready"
+  );
+  return {
+    projectPath: ready[0]?.project_path,
+    ...ready.length > 1 ? {
+      warning: "Multiple ready Editors are available; refreshing the catalog schema from the first deterministic registry entry only."
+    } : {}
+  };
+}
 async function refreshLivePipelineSchemas(catalogs) {
   const status = {
     editor: false,
@@ -16112,10 +16380,17 @@ async function refreshLivePipelineSchemas(catalogs) {
   };
   const cli = await resolveUnityCli();
   if (!cli) return status;
+  let editorProjectPath = process.env.UNITY_PROJECT_PATH;
+  if (!editorProjectPath) {
+    const snapshot = await discoverEditors();
+    const selected = selectSchemaRefreshEditor(snapshot);
+    if (selected.warning) status.warnings.push(selected.warning);
+    editorProjectPath = selected.projectPath;
+  }
   const targets = [
     {
       source: "editor",
-      value: process.env.UNITY_PROJECT_PATH,
+      value: editorProjectPath,
       option: "--project-path"
     },
     {
@@ -16153,6 +16428,29 @@ async function refreshLivePipelineSchemas(catalogs) {
     status[target.source] = true;
   }
   return status;
+}
+async function editorConnectionSnapshot(selectors, registryOptions) {
+  const snapshot = await discoverEditors(registryOptions);
+  let selectedEditor = null;
+  let selectionError = null;
+  try {
+    selectedEditor = await resolveEditor(selectors, registryOptions);
+  } catch (error2) {
+    if (!(error2 instanceof ToolkitError) || !error2.code.startsWith("TARGET_"))
+      throw error2;
+    selectionError = {
+      code: error2.code,
+      message: error2.message,
+      details: error2.details ?? null
+    };
+  }
+  return {
+    active_editors: snapshot.active_editors,
+    stale_editors: snapshot.stale_editors,
+    corrupt_entries: snapshot.corrupt_entries,
+    selected_editor: selectedEditor,
+    selection_error: selectionError
+  };
 }
 async function serviceCall(name, input, catalogs, liveRefresh, signal) {
   if (name === "unity_catalog_status") {
@@ -16196,19 +16494,23 @@ async function serviceCall(name, input, catalogs, liveRefresh, signal) {
     };
   }
   if (name === "unity_connection_status") {
-    const cli = await resolveUnityCli();
-    if (!cli) {
-      throw new ToolkitError(
-        "CLI_NOT_FOUND",
-        "Unity CLI was not found. Set UNITY_CLI_PATH or install it."
-      );
-    }
+    const selectors = {
+      editor_instance_id: input.editor_instance_id,
+      project_id: input.project_id,
+      project_path: input.project_path,
+      projectPath: input.projectPath
+    };
+    const editorStatus = await editorConnectionSnapshot(selectors);
     const timeoutMs = Number(input.timeoutMs ?? 3e4);
-    const statusArgs = ["status", "--format", "json"];
-    if (input.projectPath) statusArgs.push("--project", String(input.projectPath));
-    const editor = await runProcess(cli, statusArgs, { timeoutMs, signal });
     let player = null;
     if (input.runtimePath) {
+      const cli = await resolveUnityCli();
+      if (!cli) {
+        throw new ToolkitError(
+          "CLI_NOT_FOUND",
+          "Unity CLI was not found. Set UNITY_CLI_PATH or install it."
+        );
+      }
       player = await runProcess(
         cli,
         ["list", "--runtime-path", String(input.runtimePath), "--format", "json"],
@@ -16216,11 +16518,8 @@ async function serviceCall(name, input, catalogs, liveRefresh, signal) {
       );
     }
     return {
-      ok: editor.exitCode === 0 && (!player || player.exitCode === 0),
-      editor: {
-        exitCode: editor.exitCode,
-        output: editor.stdout.trim()
-      },
+      ok: !player || player.exitCode === 0,
+      ...editorStatus,
       player: player ? { exitCode: player.exitCode, output: player.stdout.trim() } : null
     };
   }
@@ -16319,7 +16618,7 @@ async function createServer() {
           {
             uri: request.params.uri,
             mimeType: "text/markdown",
-            text: await readFile3(capabilityPath, "utf8")
+            text: await readFile4(capabilityPath, "utf8")
           }
         ]
       };
@@ -16343,7 +16642,7 @@ async function createServer() {
 // src/setup/http.ts
 import { randomUUID } from "node:crypto";
 import { createServer as createHttpServer } from "node:http";
-import { readFile as readFile4, writeFile } from "node:fs/promises";
+import { readFile as readFile6, writeFile as writeFile2 } from "node:fs/promises";
 
 // node_modules/@hono/node-server/dist/constants-BLSFu_RU.mjs
 var X_ALREADY_SENT = "x-hono-already-sent";
@@ -16628,7 +16927,7 @@ var readBodyDirect = (request) => {
     request[bodyBufferKey] = buffered;
     return Promise.resolve(buffered);
   }
-  const promise = new Promise((resolve, reject) => {
+  const promise = new Promise((resolve2, reject) => {
     const chunks = [];
     let settled = false;
     const finish = (callback) => {
@@ -16646,7 +16945,7 @@ var readBodyDirect = (request) => {
         else if (recovered === void 0) reject(error2 ?? normalizeAbortError(request, incoming));
         else {
           request[bodyBufferKey] = recovered;
-          resolve(recovered);
+          resolve2(recovered);
         }
       });
       return true;
@@ -16658,7 +16957,7 @@ var readBodyDirect = (request) => {
       finish(() => {
         const buffer = chunks.length === 1 ? chunks[0] : Buffer.concat(chunks);
         request[bodyBufferKey] = buffer;
-        resolve(buffer);
+        resolve2(buffer);
       });
     };
     const onError = (error2) => {
@@ -17181,7 +17480,7 @@ var responseViaResponseObject = async (res, outgoing, options = {}) => {
         });
         if (!chunk) {
           if (i === 1) {
-            await new Promise((resolve) => setTimeout(resolve));
+            await new Promise((resolve2) => setTimeout(resolve2));
             maxReadCount = 3;
             continue;
           }
@@ -17754,9 +18053,9 @@ data:
       const initRequest = messages.find((m) => isInitializeRequest(m));
       const clientProtocolVersion = initRequest ? initRequest.params.protocolVersion : req.headers.get("mcp-protocol-version") ?? DEFAULT_NEGOTIATED_PROTOCOL_VERSION;
       if (this._enableJsonResponse) {
-        return new Promise((resolve) => {
+        return new Promise((resolve2) => {
           this._streamMapping.set(streamId, {
-            resolveJson: resolve,
+            resolveJson: resolve2,
             cleanup: () => {
               this._streamMapping.delete(streamId);
             }
@@ -18086,10 +18385,64 @@ var StreamableHTTPServerTransport = class {
   }
 };
 
+// src/setup/broker.ts
+import { mkdir, readFile as readFile5, readdir as readdir2, rename, rm, stat as stat2, writeFile } from "node:fs/promises";
+import { dirname as dirname3, join as join4 } from "node:path";
+function validateBrokerLease(value2) {
+  if (!value2 || typeof value2 !== "object" || Array.isArray(value2))
+    throw new Error("lease must be an object");
+  const object3 = value2;
+  const keys = /* @__PURE__ */ new Set([
+    "schema_version",
+    "editor_instance_id",
+    "owner_pid",
+    "owner_started_at_utc",
+    "heartbeat_at_utc",
+    "lease_expires_at_utc"
+  ]);
+  for (const key of Object.keys(object3))
+    if (!keys.has(key)) throw new Error(`additional property: ${key}`);
+  for (const key of keys)
+    if (!(key in object3)) throw new Error(`missing property: ${key}`);
+  if (object3.schema_version !== 1) throw new Error("unsupported schema_version");
+  if (typeof object3.editor_instance_id !== "string" || !object3.editor_instance_id)
+    throw new Error("editor_instance_id must be a string");
+  if (!Number.isInteger(object3.owner_pid) || Number(object3.owner_pid) < 1)
+    throw new Error("owner_pid must be positive");
+  for (const key of ["owner_started_at_utc", "heartbeat_at_utc", "lease_expires_at_utc"])
+    if (typeof object3[key] !== "string" || !Number.isFinite(Date.parse(object3[key])))
+      throw new Error(`${key} must be an ISO timestamp`);
+  return object3;
+}
+async function liveBrokerLeases(directory, options = {}) {
+  let files;
+  try {
+    files = await readdir2(directory);
+  } catch {
+    return [];
+  }
+  const now = (options.now ?? /* @__PURE__ */ new Date()).getTime();
+  const processMatches = options.processMatches ?? ((lease) => processMatchesStart(lease.owner_pid, lease.owner_started_at_utc));
+  const live = [];
+  for (const file of files.filter((entry) => entry.endsWith(".json"))) {
+    const path = join4(directory, file);
+    try {
+      const lease = validateBrokerLease(JSON.parse(await readFile5(path, "utf8")));
+      if (file !== `${lease.editor_instance_id}.json` || Date.parse(lease.lease_expires_at_utc) <= now || now - Date.parse(lease.heartbeat_at_utc) > 1e4 || !await processMatches(lease))
+        throw new Error("stale lease");
+      live.push(lease);
+    } catch {
+      if (options.cleanupStale !== false)
+        await rm(path, { force: true });
+    }
+  }
+  return live.sort((a, b) => a.editor_instance_id.localeCompare(b.editor_instance_id));
+}
+
 // src/setup/http.ts
 async function runHttpServer(options) {
   const sessions = /* @__PURE__ */ new Map();
-  const token = options.tokenFile ? (await readFile4(options.tokenFile, "utf8")).trim() : "";
+  const token = options.tokenFile ? (await readFile6(options.tokenFile, "utf8")).trim() : "";
   const expectedReference = options.tokenFile ? `Bearer file:${options.tokenFile}` : "";
   const http = createHttpServer(async (request, response) => {
     try {
@@ -18133,20 +18486,19 @@ async function runHttpServer(options) {
       if (!response.headersSent) response.writeHead(500).end("Internal error");
     }
   });
-  await new Promise((resolve, reject) => {
+  await new Promise((resolve2, reject) => {
     http.once("error", reject);
-    http.listen(options.port, options.host, () => resolve());
+    http.listen(options.port, options.host, () => resolve2());
   });
   const address = http.address();
   const port = typeof address === "object" && address ? address.port : options.port;
   if (options.stateFile) {
-    await writeFile(
+    await writeFile2(
       options.stateFile,
       JSON.stringify(
         {
           pid: process.pid,
           ownerPid: options.ownerPid ?? null,
-          projectPath: process.env.UNITY_PROJECT_PATH ?? null,
           host: options.host,
           port,
           endpoint: `http://${options.host}:${port}/mcp`,
@@ -18164,18 +18516,23 @@ async function runHttpServer(options) {
   );
   const close = async () => {
     for (const transport of sessions.values()) await transport.close();
-    await new Promise((resolve) => http.close(() => resolve()));
+    await new Promise((resolve2) => http.close(() => resolve2()));
   };
   process.once("SIGTERM", () => void close().then(() => process.exit(0)));
   process.once("SIGINT", () => void close().then(() => process.exit(0)));
-  if (options.ownerPid) {
-    const timer = setInterval(() => {
-      try {
-        process.kill(options.ownerPid, 0);
-      } catch {
-        clearInterval(timer);
-        void close().then(() => process.exit(0));
+  if (options.leaseDirectory && !options.keepAlive) {
+    let emptySince = null;
+    const timer = setInterval(async () => {
+      const live = await liveBrokerLeases(options.leaseDirectory);
+      if (live.length > 0) {
+        emptySince = null;
+        return;
       }
+      emptySince ??= Date.now();
+      if (Date.now() - emptySince < 1e4) return;
+      clearInterval(timer);
+      await close();
+      process.exit(0);
     }, 2e3);
     timer.unref();
   }
@@ -18207,6 +18564,8 @@ if (transportName === "http") {
     port: Number(value("--port") ?? "0"),
     tokenFile: value("--token-file"),
     ownerPid: Number(value("--owner-pid") ?? "0") || void 0,
+    leaseDirectory: value("--lease-dir"),
+    keepAlive: value("--keep-alive") === "true",
     stateFile: value("--state-file")
   });
 } else {

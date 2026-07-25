@@ -8,6 +8,7 @@ import { redact } from "./redaction.js";
 import { requireConfirmation } from "./safety.js";
 import { resolveSecretInputs } from "./secrets.js";
 import type { CatalogTool, ToolkitResult } from "./types.js";
+import { resolveEditor, type RegistryOptions } from "./editor-registry.js";
 
 function arrayValue(value: unknown): unknown[] {
   return Array.isArray(value) ? value : value == null ? [] : [value];
@@ -34,9 +35,23 @@ export async function executeCatalogTool(
   tool: CatalogTool,
   input: Record<string, unknown>,
   signal?: AbortSignal,
+  registryOptions?: RegistryOptions,
 ): Promise<ToolkitResult> {
   requireConfirmation(tool, input);
   const resolvedInput = await resolveSecretInputs(tool, input);
+  if (tool.source === "editor") {
+    const editor = await resolveEditor(
+      {
+        editor_instance_id: input.editor_instance_id as string | undefined,
+        project_id: input.project_id as string | undefined,
+        project_path: input.project_path as string | undefined,
+        projectPath: input.projectPath as string | undefined,
+      },
+      registryOptions,
+    );
+    resolvedInput.project_path = editor.project_path;
+    delete resolvedInput.projectPath;
+  }
   const cli = await resolveUnityCli();
   if (!cli) {
     throw new ToolkitError(
@@ -44,7 +59,6 @@ export async function executeCatalogTool(
       "Unity CLI was not found. Set UNITY_CLI_PATH or install the official CLI.",
     );
   }
-
   const { args, target } = buildArguments(tool, resolvedInput);
   let processResult;
   try {

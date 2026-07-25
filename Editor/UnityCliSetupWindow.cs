@@ -15,7 +15,7 @@ using UnityEngine.UIElements;
 namespace UniGame.UnityCli.Editor
 {
     /// <summary>
-    /// Provides a guided UI Toolkit workflow for project-pinned Unity CLI MCP setup.
+    /// Provides the UI Toolkit control center for global MCP setup and live Editor publication.
     /// </summary>
     public sealed class UnityCliSetupWindow : EditorWindow
     {
@@ -68,7 +68,9 @@ namespace UniGame.UnityCli.Editor
         private VisualElement _agentsContainer;
         private Toggle _installSkillToggle;
         private Button _reviewButton;
+        private Button _repairButton;
         private VisualElement _previewPanel;
+        private Label _previewTitle;
         private VisualElement _changesContainer;
         private VisualElement _warningsContainer;
         private Toggle _forceToggle;
@@ -89,13 +91,29 @@ namespace UniGame.UnityCli.Editor
         private Button _installCliButton;
         private Button _copyCliCommandButton;
         private Button _installPipelineButton;
+        private Label _thisEditorState;
+        private Label _thisProjectId;
+        private Label _thisEditorInstanceId;
+        private Label _thisConnectionState;
+        private Label _thisHeartbeat;
+        private Label _thisPipeline;
+        private VisualElement _thisEditorNotices;
+        private Label _activeEditorsCount;
+        private VisualElement _activeEditorsContainer;
+        private VisualElement _activeEditorsEmpty;
+        private VisualElement _activeEditorsNotices;
+        private Label _globalServerName;
+        private Label _brokerPort;
+        private Label _brokerLeaseCount;
+        private Label _brokerState;
+        private bool _repairPreviewRequested;
 
         [MenuItem("UniGame/Unity CLI MCP")]
         private static void Open()
         {
             var window = GetWindow<UnityCliSetupWindow>();
             window.titleContent = new GUIContent("Unity CLI MCP");
-            window.minSize = new Vector2(720f, 620f);
+            window.minSize = new Vector2(560f, 620f);
             window.Show();
         }
 
@@ -140,7 +158,9 @@ namespace UniGame.UnityCli.Editor
             _agentsContainer = rootVisualElement.Q<VisualElement>("agents-container");
             _installSkillToggle = rootVisualElement.Q<Toggle>("install-skill");
             _reviewButton = rootVisualElement.Q<Button>("review-configuration");
+            _repairButton = rootVisualElement.Q<Button>("repair-configuration");
             _previewPanel = rootVisualElement.Q<VisualElement>("preview-panel");
+            _previewTitle = rootVisualElement.Q<Label>("preview-title");
             _changesContainer = rootVisualElement.Q<VisualElement>("changes-container");
             _warningsContainer = rootVisualElement.Q<VisualElement>("warnings-container");
             _forceToggle = rootVisualElement.Q<Toggle>("force-conflicts");
@@ -161,13 +181,40 @@ namespace UniGame.UnityCli.Editor
             _installCliButton = rootVisualElement.Q<Button>("install-cli");
             _copyCliCommandButton = rootVisualElement.Q<Button>("copy-cli-command");
             _installPipelineButton = rootVisualElement.Q<Button>("install-pipeline");
+            _thisEditorState = rootVisualElement.Q<Label>("this-editor-state");
+            _thisProjectId = rootVisualElement.Q<Label>("this-project-id");
+            _thisEditorInstanceId = rootVisualElement.Q<Label>("this-editor-instance-id");
+            _thisConnectionState = rootVisualElement.Q<Label>("this-connection-state");
+            _thisHeartbeat = rootVisualElement.Q<Label>("this-heartbeat");
+            _thisPipeline = rootVisualElement.Q<Label>("this-pipeline");
+            _thisEditorNotices = rootVisualElement.Q<VisualElement>("this-editor-notices");
+            _activeEditorsCount = rootVisualElement.Q<Label>("active-editors-count");
+            _activeEditorsContainer =
+                rootVisualElement.Q<VisualElement>("active-editors-container");
+            _activeEditorsEmpty = rootVisualElement.Q<VisualElement>("active-editors-empty");
+            _activeEditorsNotices =
+                rootVisualElement.Q<VisualElement>("active-editors-notices");
+            _globalServerName = rootVisualElement.Q<Label>("global-server-name");
+            _brokerPort = rootVisualElement.Q<Label>("broker-port");
+            _brokerLeaseCount = rootVisualElement.Q<Label>("broker-lease-count");
+            _brokerState = rootVisualElement.Q<Label>("broker-state");
         }
 
         private void BindEvents()
         {
             _refreshButton.clicked += RefreshAndProbe;
-            _reviewButton.clicked += () => RunOperation("plan", false);
-            _applyButton.clicked += () => RunOperation("apply", true);
+            _reviewButton.clicked += () =>
+            {
+                _repairPreviewRequested = false;
+                RunOperation(PreviewOperation(false), false);
+            };
+            _repairButton.clicked += () =>
+            {
+                _repairPreviewRequested = true;
+                RunOperation(PreviewOperation(true), false);
+            };
+            _applyButton.clicked += () =>
+                RunOperation(ApplyOperation(_repairPreviewRequested), true);
             _removeButton.clicked += () => RunOperation("remove", true);
             _rollbackButton.clicked += () => RunOperation("rollback", true);
             _httpActionButton.clicked += ToggleHttp;
@@ -289,6 +336,7 @@ namespace UniGame.UnityCli.Editor
 
         private void ConfigurationChanged()
         {
+            _repairPreviewRequested = false;
             _presenter.InvalidatePreview();
             _previewPanel.style.display = DisplayStyle.None;
             _resultPanel.style.display = DisplayStyle.None;
@@ -351,7 +399,7 @@ namespace UniGame.UnityCli.Editor
                 UnityCliSetupBridge.Execute(_nodePath, _setupPath, _lastRequest));
             _lastResponse = result;
             var response = UnityCliSetupResponse.Parse(result);
-            _presenter.AcceptResponse(response);
+            AcceptResponse(response, operation, confirmation);
             SetBusy(false, string.Empty);
 
             if (response == null || !response.ok)
@@ -369,7 +417,7 @@ namespace UniGame.UnityCli.Editor
                 return;
             }
 
-            if (string.Equals(operation, "plan", StringComparison.Ordinal))
+            if (IsPreviewOperation(operation, confirmation))
             {
                 ShowPreview(response);
                 return;
@@ -388,12 +436,10 @@ namespace UniGame.UnityCli.Editor
                     response.data?.agents,
                     false,
                     Array.Empty<string>());
-                SavePreferences();
             }
             else
             {
                 _presenter.UpdateAgentStatuses(response.data?.agents);
-                SavePreferences();
             }
 
             SyncAgentToggles();
@@ -402,8 +448,45 @@ namespace UniGame.UnityCli.Editor
                 _presenter.HttpPort = response.data.http.port;
         }
 
+        private void AcceptResponse(
+            UnityCliSetupResponse response,
+            string requestedOperation,
+            bool confirmation)
+        {
+            if (response == null || !IsPreviewOperation(requestedOperation, confirmation))
+            {
+                _presenter.AcceptResponse(response);
+                return;
+            }
+
+            var responseOperation = response.operation;
+            response.operation = "plan";
+            _presenter.AcceptResponse(response);
+            response.operation = responseOperation;
+        }
+
+        internal static string PreviewOperation(bool repairRequested)
+        {
+            return repairRequested ? "repair" : "plan";
+        }
+
+        internal static string ApplyOperation(bool repairRequested)
+        {
+            return repairRequested ? "repair" : "apply";
+        }
+
+        internal static bool IsPreviewOperation(string operation, bool confirmation)
+        {
+            return !confirmation &&
+                   (string.Equals(operation, "plan", StringComparison.Ordinal) ||
+                    string.Equals(operation, "repair", StringComparison.Ordinal));
+        }
+
         private void ShowPreview(UnityCliSetupResponse response)
         {
+            _previewTitle.text = _repairPreviewRequested
+                ? "Repair preview"
+                : "Configuration preview";
             _changesContainer.Clear();
             foreach (var change in response.changes ?? Array.Empty<UnityCliPlannedChange>())
             {
@@ -437,9 +520,11 @@ namespace UniGame.UnityCli.Editor
             _probe = response;
             _resultPanel.RemoveFromClassList("result-error");
             _resultPanel.AddToClassList("result-success");
-            _resultTitle.text = operation == "apply"
-                ? "Configuration is ready"
-                : $"{OperationLabel(operation)} completed";
+            _resultTitle.text = string.Equals(operation, "repair", StringComparison.Ordinal)
+                ? "Repair completed"
+                : operation == "apply"
+                    ? "Configuration is ready"
+                    : $"{OperationLabel(operation)} completed";
             _resultDetails.text = response.changes?.Length > 0
                 ? $"{response.changes.Length} managed change(s) completed."
                 : "The managed state is healthy.";
@@ -597,11 +682,16 @@ namespace UniGame.UnityCli.Editor
                 return;
 
             RenderEnvironment();
+            RenderDynamicArchitecture();
             SyncAgentToggles();
             var canReview = _presenter.CanReview(
                 _nodePath, _nodeVersion, _cliPath, _setupPath);
             _reviewButton.SetEnabled(canReview);
-            _reviewButton.text = "Review";
+            _reviewButton.text = "Preview changes";
+            _repairButton.SetEnabled(canReview);
+            _applyButton.text = _repairPreviewRequested
+                ? "Repair from preview"
+                : "Apply preview";
             _applyButton.SetEnabled(_presenter.CanApply(
                 _nodePath, _nodeVersion, _cliPath, _setupPath));
             _refreshButton.SetEnabled(!_presenter.Busy);
@@ -692,8 +782,8 @@ namespace UniGame.UnityCli.Editor
                 !setupReady
                     ? "Reinstall or repair the UPM package."
                     : serverReady
-                        ? "Self-contained project-pinned server."
-                        : "Installed during Apply.");
+                        ? "Shared dynamic broker bundle is installed."
+                        : "Installed during confirmed Apply.");
         }
 
         private void SetEnvironmentCard(
@@ -711,6 +801,204 @@ namespace UniGame.UnityCli.Editor
             rootVisualElement.Q<Label>($"{id}-status").text = state.ToString();
             rootVisualElement.Q<Label>($"{id}-version").text = status;
             rootVisualElement.Q<Label>($"{id}-detail").text = detail;
+        }
+
+        private void RenderDynamicArchitecture()
+        {
+            var data = _probe?.data;
+            var registry = data?.registry;
+            var editors = registry?.active_editors ?? Array.Empty<UnityCliEditorMetadata>();
+            var currentPid = Process.GetCurrentProcess().Id;
+            var current = editors.FirstOrDefault(editor => editor.editor_pid == currentPid);
+            var staleCurrent = registry?.stale_editors?.FirstOrDefault(
+                editor => editor.editor_pid == currentPid);
+            current = current ?? staleCurrent;
+            var connected = staleCurrent == null &&
+                            (current != null || data?.editor?.connected == true);
+            var connectionState = current?.connection_state ?? data?.editor?.status;
+
+            _thisProjectId.text = ValueOrUnavailable(current?.project_id);
+            _thisEditorInstanceId.text = ValueOrUnavailable(current?.editor_instance_id);
+            _thisConnectionState.text = ValueOr(
+                connectionState,
+                connected ? "Published" : "Not published");
+            _thisHeartbeat.text = ValueOrUnavailable(current?.heartbeat_at_utc);
+            _thisPipeline.text = !string.IsNullOrWhiteSpace(current?.pipeline_version)
+                ? $"{current.pipeline_version} · published by this Editor"
+                : string.IsNullOrWhiteSpace(_pipelineVersion)
+                    ? "Unavailable · install Pipeline to publish Editor tools"
+                    : $"{_pipelineVersion} · publication support available";
+
+            var currentState = staleCurrent != null
+                ? "Stale"
+                : string.IsNullOrWhiteSpace(connectionState)
+                    ? connected ? "Connected" : "No Editor"
+                    : connectionState;
+            SetStatusPill(_thisEditorState, currentState, StateClass(currentState, connected));
+            _thisEditorNotices.Clear();
+            if (staleCurrent != null)
+                _thisEditorNotices.Add(CreateNotice(
+                    $"This Editor publication is stale ({staleCurrent.stale_reason}); tools are excluded until it republishes.",
+                    "notice-warning"));
+
+            RenderActiveEditors(editors, registry);
+
+            var brokerPort = data?.http?.port ?? 0;
+            var leases = Math.Max(
+                data?.live_lease_count ?? 0,
+                data?.lease_count ?? 0);
+            if (leases == 0 && editors.Length > 0)
+                leases = editors.Length;
+            var brokerAlive = data?.http?.alive == true;
+            var brokerStatus = brokerAlive ? "Running" : "Stopped";
+            _brokerPort.text = brokerPort > 0 ? brokerPort.ToString() : "Automatic";
+            _brokerLeaseCount.text = Math.Max(0, leases).ToString();
+            SetStatusPill(_brokerState, brokerStatus, StateClass(brokerStatus, brokerAlive));
+            _globalServerName.text = "unity_cli_mcp";
+        }
+
+        private void RenderActiveEditors(
+            IReadOnlyList<UnityCliEditorMetadata> editors,
+            UnityCliEditorRegistrySnapshot registry)
+        {
+            _activeEditorsContainer.Clear();
+            _activeEditorsNotices.Clear();
+            _activeEditorsCount.text = editors.Count == 1
+                ? "1 Editor"
+                : $"{editors.Count} Editors";
+            _activeEditorsEmpty.style.display =
+                editors.Count == 0 ? DisplayStyle.Flex : DisplayStyle.None;
+
+            foreach (var editor in editors)
+                _activeEditorsContainer.Add(CreateEditorCard(editor));
+
+            if (editors.Count == 0)
+                _activeEditorsNotices.Add(CreateNotice(
+                    "No Editor is currently published. Agent registration can still remain globally installed.",
+                    "notice-info"));
+            else if (editors.Count > 1)
+                _activeEditorsNotices.Add(CreateNotice(
+                    $"{editors.Count} Editors are active. Tool calls must resolve a project or Editor instance.",
+                    "notice-info"));
+
+            var duplicateIds = editors
+                .Select(editor => editor.project_id)
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .GroupBy(value => value, StringComparer.OrdinalIgnoreCase)
+                .Where(group => group.Count() > 1)
+                .Select(group => group.Key)
+                .ToArray();
+            if (duplicateIds.Length > 0)
+            {
+                _activeEditorsNotices.Add(CreateNotice(
+                    $"Duplicate project_id detected ({string.Join(", ", duplicateIds)}). Routing is ambiguous until an Editor instance is selected.",
+                    "notice-error"));
+            }
+
+            var reportedStale = registry?.stale_editors?.Length ?? 0;
+            if (reportedStale > 0)
+                _activeEditorsNotices.Add(CreateNotice(
+                    $"{reportedStale} stale Editor lease(s) are excluded from active routing.",
+                    "notice-warning"));
+
+            var corrupt = registry?.corrupt_entries?.Length ?? 0;
+            if (corrupt > 0)
+                _activeEditorsNotices.Add(CreateNotice(
+                    $"{corrupt} malformed registry entr{(corrupt == 1 ? "y was" : "ies were")} ignored.",
+                    "notice-error"));
+        }
+
+        private static VisualElement CreateEditorCard(UnityCliEditorMetadata editor)
+        {
+            var state = editor.connection_state;
+            var live = IsLiveState(state);
+            var card = new VisualElement();
+            card.AddToClassList("editor-card");
+            card.AddToClassList(live ? "state-ready" : "state-warning");
+
+            var header = new VisualElement();
+            header.AddToClassList("status-header");
+            var name = new Label(ValueOr(
+                editor.project_name,
+                "Unnamed Unity project"));
+            name.AddToClassList("editor-name");
+            var stateLabel = new Label(ValueOr(state, live ? "Connected" : "Unavailable"));
+            stateLabel.AddToClassList("status-pill");
+            header.Add(name);
+            header.Add(stateLabel);
+            card.Add(header);
+
+            var path = new Label(ValueOr(
+                editor.project_path,
+                "Project path unavailable"));
+            path.AddToClassList("editor-path");
+            card.Add(path);
+
+            var meta = new VisualElement();
+            meta.AddToClassList("editor-meta-grid");
+            AddEditorMeta(
+                meta,
+                "Unity",
+                editor.editor_version);
+            AddEditorMeta(meta, "Editor PID", editor.editor_pid.ToString());
+            AddEditorMeta(meta, "Heartbeat", editor.heartbeat_at_utc);
+            AddEditorMeta(meta, "Tools", editor.tool_count.ToString());
+            card.Add(meta);
+            return card;
+        }
+
+        private static void AddEditorMeta(VisualElement parent, string label, string value)
+        {
+            var cell = new VisualElement();
+            cell.AddToClassList("editor-meta");
+            var key = new Label(label);
+            key.AddToClassList("detail-label");
+            var content = new Label(ValueOrUnavailable(value));
+            content.AddToClassList("editor-meta-value");
+            cell.Add(key);
+            cell.Add(content);
+            parent.Add(cell);
+        }
+
+        private static void SetStatusPill(Label label, string text, string stateClass)
+        {
+            label.text = text;
+            label.RemoveFromClassList("status-ready");
+            label.RemoveFromClassList("status-warning");
+            label.RemoveFromClassList("status-error");
+            label.RemoveFromClassList("state-neutral");
+            label.AddToClassList(stateClass);
+        }
+
+        private static string StateClass(string state, bool live)
+        {
+            if (state?.IndexOf("malformed", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                state?.IndexOf("error", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                state?.IndexOf("duplicate", StringComparison.OrdinalIgnoreCase) >= 0)
+                return "status-error";
+            if (state?.IndexOf("stale", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                state?.IndexOf("warning", StringComparison.OrdinalIgnoreCase) >= 0)
+                return "status-warning";
+            return live ? "status-ready" : "state-neutral";
+        }
+
+        private static bool IsLiveState(string state)
+        {
+            return string.Equals(state, "connected", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(state, "active", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(state, "live", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(state, "published", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(state, "ready", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static string ValueOrUnavailable(string value)
+        {
+            return ValueOr(value, "Unavailable");
+        }
+
+        private static string ValueOr(string value, string fallback)
+        {
+            return string.IsNullOrWhiteSpace(value) ? fallback : value;
         }
 
         private void RenderAgentStates()
@@ -791,6 +1079,8 @@ namespace UniGame.UnityCli.Editor
             {
                 case "plan":
                     return "Reviewing configuration";
+                case "repair":
+                    return "Repairing managed configuration";
                 case "apply":
                     return "Applying configuration";
                 case "remove":

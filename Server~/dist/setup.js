@@ -1,20 +1,20 @@
 #!/usr/bin/env node
 
 // src/setup/manager.ts
-import { createHash as createHash3, randomBytes } from "node:crypto";
+import { createHash as createHash4, randomBytes, randomUUID as randomUUID2 } from "node:crypto";
 import {
   access as access2,
   copyFile,
   cp,
-  mkdir,
-  readFile as readFile2,
-  rename,
-  rm,
-  stat,
-  writeFile
+  mkdir as mkdir2,
+  readFile as readFile4,
+  rename as rename2,
+  rm as rm2,
+  stat as stat3,
+  writeFile as writeFile2
 } from "node:fs/promises";
 import { closeSync, constants as constants2, existsSync as existsSync3, openSync } from "node:fs";
-import { dirname as dirname4, join as join4 } from "node:path";
+import { dirname as dirname5, join as join6 } from "node:path";
 import { spawn as spawn2 } from "node:child_process";
 
 // src/catalog.ts
@@ -63,7 +63,7 @@ function runProcess(executable, args, options = {}) {
   const started = Date.now();
   const timeoutMs = options.timeoutMs ?? 3e4;
   const maxOutputBytes = options.maxOutputBytes ?? 1e6;
-  return new Promise((resolve2, reject) => {
+  return new Promise((resolve3, reject) => {
     const child = spawn(executable, args, {
       cwd: options.cwd,
       env: options.env,
@@ -109,7 +109,7 @@ function runProcess(executable, args, options = {}) {
       settled = true;
       clearTimeout(timer);
       options.signal?.removeEventListener("abort", abort);
-      resolve2({
+      resolve3({
         exitCode,
         signal,
         stdout: Buffer.concat(stdout).toString("utf8"),
@@ -221,8 +221,8 @@ function discoverAgents(context) {
 }
 function registrationValue(context, transport, serverPath, tokenFile, port = 0) {
   const env = {
-    UNITY_PROJECT_PATH: context.projectPath,
-    UNIGAME_UNITYCLI_ROOT: dirname2(dirname2(serverPath))
+    UNIGAME_UNITYCLI_ROOT: dirname2(dirname2(serverPath)),
+    UNIGAME_UNITYCLI_DATA_PATH: context.dataPath
   };
   const value = transport === "http" ? {
     type: "http",
@@ -333,6 +333,62 @@ function patchManagedToml(text, name, block) {
   }
   return `${base.trimEnd()}${base.trim() && block ? "\n\n" : ""}${block}`;
 }
+function managedTomlFingerprint(text, name) {
+  const begin = `# ${managedMarker}:${name}:begin`;
+  const end = `# ${managedMarker}:${name}:end`;
+  const start = text.indexOf(begin);
+  const finish = text.indexOf(end, start + begin.length);
+  if (start < 0 || finish < 0) return null;
+  const block = text.slice(start, finish + end.length);
+  const url = scalar(block, "url");
+  if (url !== null) {
+    return fingerprint({
+      type: "http",
+      url,
+      headers: inlineTable(block, "http_headers")
+    });
+  }
+  const command = scalar(block, "command");
+  const argsMatch = block.match(/^args\s*=\s*(\[[^\r\n]*\])/m);
+  if (command === null || !argsMatch) return null;
+  let args;
+  try {
+    args = JSON.parse(argsMatch[1]);
+  } catch {
+    return null;
+  }
+  return fingerprint({
+    command,
+    args,
+    env: inlineTable(block, "env")
+  });
+}
+function scalar(block, key) {
+  const match = block.match(new RegExp(`^${key}\\s*=\\s*("(?:\\\\.|[^"])*")`, "m"));
+  if (!match) return null;
+  try {
+    return JSON.parse(match[1]);
+  } catch {
+    return null;
+  }
+}
+function inlineTable(block, key) {
+  const match = block.match(new RegExp(`^${key}\\s*=\\s*\\{([^\\r\\n]*)\\}`, "m"));
+  if (!match) return {};
+  const result = {};
+  const entries = match[1].matchAll(
+    /("(?:\\.|[^"])*"|[A-Za-z_][A-Za-z0-9_-]*)\s*=\s*("(?:\\.|[^"])*")/g
+  );
+  for (const entry of entries) {
+    try {
+      const keyName = entry[1].startsWith('"') ? JSON.parse(entry[1]) : entry[1];
+      result[keyName] = JSON.parse(entry[2]);
+    } catch {
+      return {};
+    }
+  }
+  return result;
+}
 function quote(value) {
   return JSON.stringify(value);
 }
@@ -385,8 +441,311 @@ function createContext(request) {
     homePath,
     dataPath,
     installRoot: join3(dataPath, "unity-cli-mcp"),
-    serverName: projectServerName(projectPath)
+    serverName: "unity_cli_mcp",
+    legacyServerName: projectServerName(projectPath)
   };
+}
+
+// src/editor-registry.ts
+import { createHash as createHash3 } from "node:crypto";
+import { readdir, readFile as readFile2, stat } from "node:fs/promises";
+import { isAbsolute, join as join4, normalize, resolve as resolve2 } from "node:path";
+import { homedir as homedir2 } from "node:os";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+var editorMetadataSchemaVersion = 1;
+var editorLeaseExpiryMs = 1e4;
+var metadataKeys = /* @__PURE__ */ new Set([
+  "schema_version",
+  "metadata_revision",
+  "project_id",
+  "project_name",
+  "project_path",
+  "editor_instance_id",
+  "editor_pid",
+  "editor_started_at_utc",
+  "editor_version",
+  "package_version",
+  "pipeline_version",
+  "connection_state",
+  "heartbeat_at_utc",
+  "lease_expires_at_utc",
+  "pipeline_descriptor_path",
+  "capability_catalog_hash",
+  "tool_count",
+  "is_playing",
+  "is_compiling",
+  "compile_errors_count"
+]);
+var stringKeys = [
+  "project_id",
+  "project_name",
+  "project_path",
+  "editor_instance_id",
+  "editor_started_at_utc",
+  "editor_version",
+  "package_version",
+  "pipeline_version",
+  "connection_state",
+  "heartbeat_at_utc",
+  "lease_expires_at_utc",
+  "pipeline_descriptor_path",
+  "capability_catalog_hash"
+];
+function defaultDataPath() {
+  if (process.env.UNIGAME_UNITYCLI_DATA_PATH)
+    return resolve2(process.env.UNIGAME_UNITYCLI_DATA_PATH);
+  if (process.platform === "win32")
+    return join4(process.env.LOCALAPPDATA ?? homedir2(), "UniGame");
+  return join4(homedir2(), ".local", "share", "unigame");
+}
+function normalizeProjectPath(path) {
+  let value = normalize(resolve2(path)).replaceAll("\\", "/");
+  if (process.platform === "win32") value = value.toLowerCase();
+  return value.replace(/\/+$/, "");
+}
+function projectId(path) {
+  return createHash3("sha256").update(normalizeProjectPath(path)).digest("hex");
+}
+function validateEditorMetadata(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value))
+    throw new Error("metadata must be an object");
+  const object = value;
+  for (const key of Object.keys(object))
+    if (!metadataKeys.has(key))
+      throw new Error(`additional property is not allowed: ${key}`);
+  for (const key of metadataKeys)
+    if (!(key in object)) throw new Error(`required property is missing: ${key}`);
+  if (object.schema_version !== editorMetadataSchemaVersion)
+    throw new Error(`unsupported schema_version: ${String(object.schema_version)}`);
+  for (const key of stringKeys)
+    if (typeof object[key] !== "string" || !object[key])
+      throw new Error(`${key} must be a non-empty string`);
+  for (const key of ["metadata_revision", "editor_pid", "tool_count", "compile_errors_count"])
+    if (!Number.isInteger(object[key]) || Number(object[key]) < 0)
+      throw new Error(`${key} must be a non-negative integer`);
+  if (Number(object.editor_pid) < 1)
+    throw new Error("editor_pid must be a positive integer");
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(object.editor_instance_id)))
+    throw new Error("editor_instance_id must be a UUID");
+  for (const key of ["is_playing", "is_compiling"])
+    if (typeof object[key] !== "boolean") throw new Error(`${key} must be a boolean`);
+  for (const key of ["editor_started_at_utc", "heartbeat_at_utc", "lease_expires_at_utc"])
+    if (!Number.isFinite(Date.parse(String(object[key]))))
+      throw new Error(`${key} must be an ISO timestamp`);
+  if (!isAbsolute(String(object.project_path)) || projectId(String(object.project_path)) !== object.project_id)
+    throw new Error("project_id does not match normalized project_path");
+  if (!isAbsolute(String(object.pipeline_descriptor_path)))
+    throw new Error("pipeline_descriptor_path must be absolute");
+  return object;
+}
+var execFileAsync = promisify(execFile);
+async function processMatchesStart(pid, startedAtUtc) {
+  try {
+    process.kill(pid, 0);
+    let output;
+    if (process.platform === "win32") {
+      const result = await execFileAsync(
+        "powershell.exe",
+        [
+          "-NoProfile",
+          "-NonInteractive",
+          "-Command",
+          `(Get-Process -Id ${pid} -ErrorAction Stop).StartTime.ToUniversalTime().ToString('O')`
+        ],
+        { windowsHide: true, timeout: 2e3 }
+      );
+      output = result.stdout.trim();
+    } else {
+      const result = await execFileAsync(
+        "ps",
+        ["-o", "lstart=", "-p", String(pid)],
+        { timeout: 2e3 }
+      );
+      output = result.stdout.trim();
+    }
+    const actual = Date.parse(output);
+    const claimed = Date.parse(startedAtUtc);
+    return Number.isFinite(actual) && Number.isFinite(claimed) && Math.abs(actual - claimed) <= 2e3;
+  } catch {
+    return false;
+  }
+}
+async function defaultProcessMatches(metadata) {
+  return processMatchesStart(metadata.editor_pid, metadata.editor_started_at_utc);
+}
+async function descriptorIsReadable(metadata) {
+  try {
+    const details = await stat(metadata.pipeline_descriptor_path);
+    return details.isFile() && details.size > 0;
+  } catch {
+    return false;
+  }
+}
+async function discoverEditors(options = {}) {
+  const root = join4(options.dataPath ?? defaultDataPath(), "unity-cli-mcp", "registry", "editors");
+  const snapshot = {
+    active_editors: [],
+    stale_editors: [],
+    corrupt_entries: []
+  };
+  let projectDirectories;
+  try {
+    projectDirectories = await readdir(root, { withFileTypes: true });
+  } catch {
+    return snapshot;
+  }
+  const now = (options.now ?? /* @__PURE__ */ new Date()).getTime();
+  const processMatches = options.processMatches ?? defaultProcessMatches;
+  for (const projectDirectory of projectDirectories) {
+    if (!projectDirectory.isDirectory()) continue;
+    const projectRoot = join4(root, projectDirectory.name);
+    let files;
+    try {
+      files = await readdir(projectRoot, { withFileTypes: true });
+    } catch (error) {
+      snapshot.corrupt_entries.push({ path: projectRoot, error: String(error) });
+      continue;
+    }
+    for (const file of files) {
+      if (!file.isFile() || !file.name.endsWith(".json")) continue;
+      const path = join4(projectRoot, file.name);
+      let metadata;
+      try {
+        metadata = validateEditorMetadata(JSON.parse(await readFile2(path, "utf8")));
+        if (projectDirectory.name !== metadata.project_id || file.name !== `${metadata.editor_instance_id}.json`)
+          throw new Error("registry path does not match metadata identity");
+      } catch (error) {
+        snapshot.corrupt_entries.push({
+          path,
+          error: error instanceof Error ? error.message : String(error)
+        });
+        continue;
+      }
+      let staleReason = "";
+      if (Date.parse(metadata.lease_expires_at_utc) <= now || now - Date.parse(metadata.heartbeat_at_utc) > editorLeaseExpiryMs)
+        staleReason = "lease_expired";
+      else if (!await processMatches(metadata))
+        staleReason = "editor_process_mismatch";
+      else if (metadata.connection_state === "ready" && !await descriptorIsReadable(metadata))
+        staleReason = "pipeline_descriptor_unavailable";
+      if (staleReason)
+        snapshot.stale_editors.push({ ...metadata, stale_reason: staleReason });
+      else
+        snapshot.active_editors.push(metadata);
+    }
+  }
+  snapshot.active_editors.sort((a, b) => a.project_id.localeCompare(b.project_id) || a.editor_instance_id.localeCompare(b.editor_instance_id));
+  return snapshot;
+}
+
+// src/setup/broker.ts
+import { randomUUID } from "node:crypto";
+import { mkdir, readFile as readFile3, readdir as readdir2, rename, rm, stat as stat2, writeFile } from "node:fs/promises";
+import { dirname as dirname4, join as join5 } from "node:path";
+function validateBrokerLease(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value))
+    throw new Error("lease must be an object");
+  const object = value;
+  const keys = /* @__PURE__ */ new Set([
+    "schema_version",
+    "editor_instance_id",
+    "owner_pid",
+    "owner_started_at_utc",
+    "heartbeat_at_utc",
+    "lease_expires_at_utc"
+  ]);
+  for (const key of Object.keys(object))
+    if (!keys.has(key)) throw new Error(`additional property: ${key}`);
+  for (const key of keys)
+    if (!(key in object)) throw new Error(`missing property: ${key}`);
+  if (object.schema_version !== 1) throw new Error("unsupported schema_version");
+  if (typeof object.editor_instance_id !== "string" || !object.editor_instance_id)
+    throw new Error("editor_instance_id must be a string");
+  if (!Number.isInteger(object.owner_pid) || Number(object.owner_pid) < 1)
+    throw new Error("owner_pid must be positive");
+  for (const key of ["owner_started_at_utc", "heartbeat_at_utc", "lease_expires_at_utc"])
+    if (typeof object[key] !== "string" || !Number.isFinite(Date.parse(object[key])))
+      throw new Error(`${key} must be an ISO timestamp`);
+  return object;
+}
+async function liveBrokerLeases(directory, options = {}) {
+  let files;
+  try {
+    files = await readdir2(directory);
+  } catch {
+    return [];
+  }
+  const now = (options.now ?? /* @__PURE__ */ new Date()).getTime();
+  const processMatches = options.processMatches ?? ((lease) => processMatchesStart(lease.owner_pid, lease.owner_started_at_utc));
+  const live = [];
+  for (const file of files.filter((entry) => entry.endsWith(".json"))) {
+    const path = join5(directory, file);
+    try {
+      const lease = validateBrokerLease(JSON.parse(await readFile3(path, "utf8")));
+      if (file !== `${lease.editor_instance_id}.json` || Date.parse(lease.lease_expires_at_utc) <= now || now - Date.parse(lease.heartbeat_at_utc) > 1e4 || !await processMatches(lease))
+        throw new Error("stale lease");
+      live.push(lease);
+    } catch {
+      if (options.cleanupStale !== false)
+        await rm(path, { force: true });
+    }
+  }
+  return live.sort((a, b) => a.editor_instance_id.localeCompare(b.editor_instance_id));
+}
+async function atomicWrite(path, content) {
+  await mkdir(dirname4(path), { recursive: true });
+  const temporary = `${path}.tmp-${process.pid}-${randomUUID()}`;
+  await writeFile(temporary, content, "utf8");
+  await rename(temporary, path);
+}
+async function acquireBrokerStartLock(path, options = {}) {
+  const now = options.now ?? /* @__PURE__ */ new Date();
+  const lock = {
+    token: randomUUID(),
+    owner_pid: options.ownerPid ?? process.pid,
+    owner_started_at_utc: options.ownerStartedAtUtc ?? now.toISOString(),
+    acquired_at_utc: now.toISOString()
+  };
+  try {
+    await mkdir(path);
+    await atomicWrite(join5(path, "owner.json"), JSON.stringify(lock));
+    return lock;
+  } catch (error) {
+    if (error.code !== "EEXIST") throw error;
+  }
+  let existing = null;
+  let age = Number.POSITIVE_INFINITY;
+  try {
+    existing = JSON.parse(
+      await readFile3(join5(path, "owner.json"), "utf8")
+    );
+    age = now.getTime() - Date.parse(existing.acquired_at_utc);
+  } catch {
+    try {
+      age = now.getTime() - (await stat2(path)).mtimeMs;
+    } catch {
+      age = Number.POSITIVE_INFINITY;
+    }
+  }
+  const processMatches = options.processMatches ?? ((entry) => processMatchesStart(entry.owner_pid, entry.owner_started_at_utc));
+  const live = existing ? await processMatches(existing) : false;
+  if (live || age <= (options.staleAfterMs ?? 1e4))
+    return null;
+  await rm(path, { recursive: true, force: true });
+  return acquireBrokerStartLock(path, options);
+}
+async function releaseBrokerStartLock(path, lock) {
+  try {
+    const existing = JSON.parse(
+      await readFile3(join5(path, "owner.json"), "utf8")
+    );
+    if (existing.token !== lock.token) return false;
+    await rm(path, { recursive: true, force: true });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 // src/setup/manager.ts
@@ -408,7 +767,8 @@ async function executeSetup(request) {
     response.changes = plan.changes;
     response.warnings.push(...plan.warnings);
     response.data = plan.data;
-    if (request.operation === "plan") return response;
+    if (request.operation === "plan" || request.operation === "repair" && !request.confirm)
+      return response;
     if (!request.confirm) {
       response.ok = false;
       response.errors.push("CONFIRMATION_REQUIRED");
@@ -453,6 +813,8 @@ async function probe(context, response) {
     timeoutMs: 1e4
   }) : null;
   const pipelineVersion = await installedPipelineVersion(context.projectPath);
+  const registry = await discoverEditors({ dataPath: context.dataPath });
+  const leaseCounts = await brokerLeaseCounts(context);
   response.data = {
     toolkitVersion,
     node: { path: process.execPath, version: process.version, supported: major() >= 20 },
@@ -477,7 +839,9 @@ async function probe(context, response) {
     serverInstalled: existsSync3(installedServer(context)),
     agents: registrations,
     skillInstalled: existsSync3(skillPath(context)),
-    http: await readJson(statePath(context))
+    http: await readJson(statePath(context)),
+    registry,
+    ...leaseCounts
   };
   response.warnings = major() < 20 ? ["Node 20 or newer is required."] : [];
   return response;
@@ -500,13 +864,20 @@ async function buildPlan(context, request) {
   const changes = [];
   const warnings = [];
   const paths = [];
+  const httpState = request.transport === "http" ? await readJson(statePath(context)) : null;
+  const httpPort = request.port && request.port > 0 ? request.port : httpState?.port ?? 0;
+  if (request.operation !== "remove" && request.transport === "http" && enabledRegistrations.some((entry) => Boolean(entry.configPath)) && httpPort <= 0) {
+    warnings.push(
+      "HTTP_ENDPOINT_NOT_READY: start the shared broker first or choose a fixed port before Apply."
+    );
+  }
   if (request.installServer !== false) {
     changes.push({
       kind: existsSync3(installedServer(context)) ? "update" : "create",
       target: installedServer(context),
       summary: "Install the self-contained MCP server bundle."
     });
-    paths.push(join4(context.installRoot, "current.json"));
+    paths.push(join6(context.installRoot, "current.json"));
   }
   for (const registration of enabledRegistrations) {
     if (!registration.configPath) continue;
@@ -514,7 +885,7 @@ async function buildPlan(context, request) {
     changes.push({
       kind: request.operation === "remove" ? "remove" : existsSync3(registration.configPath) ? "update" : "create",
       target: registration.configPath,
-      summary: registration.format === "dxt" ? "Export a project-pinned Claude Desktop extension manifest." : `Manage private ${registration.displayName} registration ${context.serverName}.`,
+      summary: registration.format === "dxt" ? "Export a global dynamic-registry Claude Desktop extension manifest." : `Manage private ${registration.displayName} registration ${context.serverName}.`,
       agent: registration.id,
       conflict
     });
@@ -522,6 +893,7 @@ async function buildPlan(context, request) {
       warnings.push(`${registration.displayName} has an unmanaged registration with the same name.`);
     paths.push(registration.configPath);
     paths.push(registrationMarkerPath(context, registration.id));
+    paths.push(...await legacyRegistrationMarkerPaths(context, registration.id));
   }
   if (request.operation !== "remove") {
     for (const registration of disabledRegistrations) {
@@ -555,7 +927,8 @@ async function buildPlan(context, request) {
       serverName: context.serverName,
       projectRoot: context.projectRoot,
       enabledAgents: enabledRegistrations.map((entry) => entry.id),
-      disabledAgents: disabledRegistrations.map((entry) => entry.id)
+      disabledAgents: disabledRegistrations.map((entry) => entry.id),
+      ...request.transport === "http" ? { httpPort } : {}
     }
   };
 }
@@ -564,19 +937,26 @@ async function applyManaged(context, request, enabledRegistrations, disabledRegi
     if (registration.configPath && await hasConflict(registration, context) && !request.force)
       throw new Error(`CONFLICT:${registration.id}`);
   }
+  const state = await readJson(statePath(context));
+  const httpPort = request.port && request.port > 0 ? request.port : state?.port ?? 0;
+  if (request.transport === "http" && enabledRegistrations.some((entry) => Boolean(entry.configPath)) && httpPort <= 0) {
+    throw new Error(
+      "HTTP_ENDPOINT_NOT_READY: start the shared broker first or choose a fixed port before Apply."
+    );
+  }
   if (request.installServer !== false) await installBundle(context);
   const serverPath = installedServer(context);
-  const tokenFile = join4(context.installRoot, "http-token");
+  const tokenFile = join6(context.installRoot, "http-token");
   await ensureToken(tokenFile);
-  const state = await readJson(statePath(context));
   for (const registration of enabledRegistrations) {
     if (!registration.configPath) continue;
+    await removeLegacyManagedRegistration(registration, context);
     const value = registrationValue(
       context,
       request.transport ?? "stdio",
       serverPath,
       tokenFile,
-      request.port && request.port > 0 ? request.port : state?.port ?? 0
+      httpPort
     );
     await writeRegistration(registration, context, value);
   }
@@ -588,16 +968,16 @@ async function applyManaged(context, request, enabledRegistrations, disabledRegi
 }
 async function removeManaged(context, request, registrations) {
   for (const registration of registrations)
-    if (registration.configPath)
+    if (registration.configPath && await containsManaged(registration, context))
       await writeRegistration(registration, context, void 0);
   if (request.installSkill) {
     for (const path of [skillPath(context), ...skillMirrors(context)])
-      await rm(path, { recursive: true, force: true });
+      await rm2(path, { recursive: true, force: true });
   }
 }
 async function writeRegistration(registration, context, value) {
   const path = registration.configPath;
-  await mkdir(dirname4(path), { recursive: true });
+  await mkdir2(dirname5(path), { recursive: true });
   const text = await readText(path);
   if (registration.format === "toml") {
     const stdio = value;
@@ -608,14 +988,14 @@ async function writeRegistration(registration, context, value) {
       url: stdio.url,
       headers: stdio.headers
     }) : "";
-    await atomicWrite(path, patchManagedToml(text, context.serverName, block));
+    await atomicWrite2(path, patchManagedToml(text, context.serverName, block));
     await writeRegistrationMarker(registration, context, value);
     return;
   }
   if (registration.format === "dxt") {
-    if (!value) await rm(path, { force: true });
+    if (!value) await rm2(path, { force: true });
     else
-      await atomicWrite(
+      await atomicWrite2(
         path,
         JSON.stringify(
           {
@@ -623,7 +1003,7 @@ async function writeRegistration(registration, context, value) {
             name: context.serverName,
             display_name: `UniGame Unity CLI \u2014 ${context.serverName}`,
             version: toolkitVersion,
-            description: "Project-pinned Unity CLI MCP server.",
+            description: "Global Unity CLI MCP broker with dynamic Editor discovery.",
             server: value
           },
           null,
@@ -634,41 +1014,42 @@ async function writeRegistration(registration, context, value) {
     return;
   }
   const key = registration.key;
-  await atomicWrite(path, patchServerJsonc(text, key, context.serverName, value));
+  await atomicWrite2(path, patchServerJsonc(text, key, context.serverName, value));
   await writeRegistrationMarker(registration, context, value);
 }
 async function installBundle(context) {
-  const versions = join4(context.installRoot, "versions");
-  const target = join4(versions, toolkitVersion);
+  const versions = join6(context.installRoot, "versions");
+  const target = join6(versions, toolkitVersion);
   const temporary = `${target}.tmp-${process.pid}`;
-  await rm(temporary, { recursive: true, force: true });
-  await mkdir(temporary, { recursive: true });
-  const source = existsSync3(join4(context.packageRoot, "Server~", "dist", "index.js")) ? join4(context.packageRoot, "Server~", "dist", "index.js") : join4(context.packageRoot, "Server~", "build", "index.js");
-  await mkdir(join4(temporary, "dist"), { recursive: true });
-  await copyFile(source, join4(temporary, "dist", "index.js"));
-  await cp(join4(context.packageRoot, "Server~", "catalogs"), join4(temporary, "catalogs"), { recursive: true });
-  await cp(join4(context.packageRoot, "Documentation~"), join4(temporary, "Documentation~"), { recursive: true });
-  await mkdir(versions, { recursive: true });
-  await mkdir(join4(context.installRoot, "logs"), { recursive: true });
-  await mkdir(join4(context.installRoot, "backups"), { recursive: true });
-  await mkdir(join4(context.installRoot, "registrations"), { recursive: true });
+  await rm2(temporary, { recursive: true, force: true });
+  await mkdir2(temporary, { recursive: true });
+  const source = existsSync3(join6(context.packageRoot, "Server~", "dist", "index.js")) ? join6(context.packageRoot, "Server~", "dist", "index.js") : join6(context.packageRoot, "Server~", "build", "index.js");
+  await mkdir2(join6(temporary, "dist"), { recursive: true });
+  await copyFile(source, join6(temporary, "dist", "index.js"));
+  await cp(join6(context.packageRoot, "Server~", "catalogs"), join6(temporary, "catalogs"), { recursive: true });
+  await cp(join6(context.packageRoot, "Server~", "schemas"), join6(temporary, "schemas"), { recursive: true });
+  await cp(join6(context.packageRoot, "Documentation~"), join6(temporary, "Documentation~"), { recursive: true });
+  await mkdir2(versions, { recursive: true });
+  await mkdir2(join6(context.installRoot, "logs"), { recursive: true });
+  await mkdir2(join6(context.installRoot, "backups"), { recursive: true });
+  await mkdir2(join6(context.installRoot, "registrations"), { recursive: true });
   if (existsSync3(target)) {
-    const rollbackTarget = join4(
+    const rollbackTarget = join6(
       context.installRoot,
       "rollback",
       `${toolkitVersion}-${Date.now()}`
     );
-    await mkdir(dirname4(rollbackTarget), { recursive: true });
-    await rename(target, rollbackTarget);
+    await mkdir2(dirname5(rollbackTarget), { recursive: true });
+    await rename2(target, rollbackTarget);
   }
-  await rename(temporary, target);
-  const bundleHash = createHash3("sha256").update(await readFile2(join4(target, "dist", "index.js"))).digest("hex");
-  await atomicWrite(
-    join4(context.installRoot, "current.json"),
+  await rename2(temporary, target);
+  const bundleHash = createHash4("sha256").update(await readFile4(join6(target, "dist", "index.js"))).digest("hex");
+  await atomicWrite2(
+    join6(context.installRoot, "current.json"),
     JSON.stringify(
       {
         version: toolkitVersion,
-        serverPath: join4(target, "dist", "index.js"),
+        serverPath: join6(target, "dist", "index.js"),
         bundleHash,
         installedAt: (/* @__PURE__ */ new Date()).toISOString()
       },
@@ -678,21 +1059,21 @@ async function installBundle(context) {
   );
 }
 async function installSkill(context, force) {
-  const source = join4(context.packageRoot, "skills", "operate-unity-cli");
+  const source = join6(context.packageRoot, "skills", "operate-unity-cli");
   const targets = [skillPath(context), ...skillMirrors(context)];
   const sourceHash = await directoryHash(source);
   for (const target of targets) {
     if (existsSync3(target)) {
-      const manifest = await readJson(join4(target, ".unigame-managed.json"));
+      const manifest = await readJson(join6(target, ".unigame-managed.json"));
       const currentHash = await directoryHash(target);
       if (!force && (!manifest || manifest.sourceHash && manifest.sourceHash !== currentHash))
         throw new Error(`SKILL_CONFLICT:${target}`);
     }
-    await rm(target, { recursive: true, force: true });
-    await mkdir(dirname4(target), { recursive: true });
+    await rm2(target, { recursive: true, force: true });
+    await mkdir2(dirname5(target), { recursive: true });
     await cp(source, target, { recursive: true, filter: (entry) => !entry.endsWith(".meta") });
-    await writeFile(
-      join4(target, ".unigame-managed.json"),
+    await writeFile2(
+      join6(target, ".unigame-managed.json"),
       JSON.stringify(
         {
           package: "com.unigame.unitycli.mcp",
@@ -707,17 +1088,17 @@ async function installSkill(context, force) {
 }
 async function createBackup(context, paths) {
   const id = `${Date.now()}-${process.pid}`;
-  const root = join4(context.installRoot, "backups", id);
+  const root = join6(context.installRoot, "backups", id);
   const manifest = { id, files: [] };
-  await mkdir(root, { recursive: true });
+  await mkdir2(root, { recursive: true });
   for (let index = 0; index < paths.length; index++) {
     const source = paths[index];
-    const backup = join4(root, String(index));
+    const backup = join6(root, String(index));
     const existed = existsSync3(source);
     if (existed) await cp(source, backup, { recursive: true });
     manifest.files.push({ source, backup, existed });
   }
-  await writeFile(join4(root, "manifest.json"), JSON.stringify(manifest, null, 2));
+  await writeFile2(join6(root, "manifest.json"), JSON.stringify(manifest, null, 2));
   return manifest;
 }
 async function rollback(context, request, response) {
@@ -733,12 +1114,12 @@ async function rollback(context, request, response) {
   return response;
 }
 async function restoreBackup(context, backupId) {
-  const root = join4(context.installRoot, "backups", backupId);
-  const manifest = JSON.parse(await readFile2(join4(root, "manifest.json"), "utf8"));
+  const root = join6(context.installRoot, "backups", backupId);
+  const manifest = JSON.parse(await readFile4(join6(root, "manifest.json"), "utf8"));
   for (const file of manifest.files) {
-    await rm(file.source, { recursive: true, force: true });
+    await rm2(file.source, { recursive: true, force: true });
     if (file.existed) {
-      await mkdir(dirname4(file.source), { recursive: true });
+      await mkdir2(dirname5(file.source), { recursive: true });
       await cp(file.backup, file.source, { recursive: true });
     }
   }
@@ -746,73 +1127,124 @@ async function restoreBackup(context, backupId) {
 }
 async function serve(context, request, response) {
   const state = await readJson(statePath(context));
+  const leaseDirectory = join6(context.installRoot, "broker-leases");
+  const ownerPid = request.ownerPid ?? process.pid;
+  const ownerStartedAtUtc = request.ownerStartedAtUtc ?? (ownerPid === process.pid ? processStartedAtUtc() : null);
+  const leaseId = (request.editorInstanceId ?? (ownerPid === process.pid ? randomUUID2() : "")).replace(/[^a-zA-Z0-9._-]/g, "_");
+  if (!leaseId)
+    throw new Error("editorInstanceId is required for an external HTTP lease");
+  if (!ownerStartedAtUtc)
+    throw new Error("ownerStartedAtUtc is required for an external HTTP lease");
+  const leasePath = join6(leaseDirectory, `${leaseId}.json`);
   if (request.stop) {
-    if (state?.pid && isAlive(state.pid)) process.kill(state.pid, "SIGTERM");
-    response.data = { stopped: Boolean(state?.pid) };
+    if (!request.confirm) throw new Error("CONFIRMATION_REQUIRED");
+    await rm2(leasePath, { force: true });
+    response.data = {
+      stopped: true,
+      brokerStillRunning: Boolean(state?.pid && isAlive(state.pid))
+    };
     return response;
   }
   if (!request.confirm) throw new Error("CONFIRMATION_REQUIRED");
+  await mkdir2(leaseDirectory, { recursive: true });
+  const leaseNow = /* @__PURE__ */ new Date();
+  await atomicWrite2(
+    leasePath,
+    JSON.stringify({
+      schema_version: 1,
+      editor_instance_id: leaseId,
+      owner_pid: ownerPid,
+      owner_started_at_utc: ownerStartedAtUtc,
+      heartbeat_at_utc: leaseNow.toISOString(),
+      lease_expires_at_utc: new Date(leaseNow.getTime() + 1e4).toISOString()
+    }, null, 2) + "\n"
+  );
   if (state?.pid && isAlive(state.pid)) {
     response.data = { alreadyRunning: true, ...state };
     return response;
   }
-  await installBundle(context);
-  const tokenFile = join4(context.installRoot, "http-token");
-  await ensureToken(tokenFile);
-  await mkdir(join4(context.installRoot, "logs"), { recursive: true });
-  const logPath = join4(
-    context.installRoot,
-    "logs",
-    `${context.serverName}.http.log`
-  );
-  const log = openSync(logPath, "a", 384);
-  const child = spawn2(
-    process.execPath,
-    [
-      installedServer(context),
-      "--transport",
-      "http",
-      "--port",
-      String(request.port ?? 0),
-      "--token-file",
-      tokenFile,
-      "--state-file",
-      statePath(context),
-      ...request.ownerPid ? ["--owner-pid", String(request.ownerPid)] : []
-    ],
-    {
-      detached: true,
-      stdio: ["ignore", log, log],
-      env: {
-        ...process.env,
-        UNITY_PROJECT_PATH: context.projectPath,
-        UNIGAME_UNITYCLI_ROOT: join4(context.installRoot, "versions", toolkitVersion)
-      },
-      shell: false
-    }
-  );
-  closeSync(log);
-  child.unref();
-  response.changes.push({
-    kind: "process",
-    target: String(child.pid),
-    summary: "Started loopback Streamable HTTP MCP server."
+  const lockPath = join6(context.installRoot, "broker-start.lock");
+  const lock = await acquireBrokerStartLock(lockPath, {
+    ownerPid: process.pid,
+    ownerStartedAtUtc: processStartedAtUtc()
   });
-  response.data = { pid: child.pid, pendingHealth: true };
-  for (let attempt = 0; attempt < 30; attempt++) {
-    const current = await readJson(statePath(context));
-    if (current) {
-      response.data = { ...current, pendingHealth: false };
-      break;
+  if (!lock) {
+    for (let attempt = 0; attempt < 50; attempt++) {
+      const current = await readJson(statePath(context));
+      if (current?.pid && isAlive(current.pid)) {
+        response.data = { alreadyRunning: true, ...current };
+        return response;
+      }
+      await new Promise((resolvePromise) => setTimeout(resolvePromise, 100));
     }
-    await new Promise((resolvePromise) => setTimeout(resolvePromise, 100));
+    throw new Error("BROKER_START_IN_PROGRESS");
   }
-  return response;
+  try {
+    await installBundle(context);
+    const tokenFile = join6(context.installRoot, "http-token");
+    await ensureToken(tokenFile);
+    await mkdir2(join6(context.installRoot, "logs"), { recursive: true });
+    const logPath = join6(
+      context.installRoot,
+      "logs",
+      `${context.serverName}.http.log`
+    );
+    const log = openSync(logPath, "a", 384);
+    const child = spawn2(
+      process.execPath,
+      [
+        installedServer(context),
+        "--transport",
+        "http",
+        "--port",
+        String(request.port ?? 0),
+        "--token-file",
+        tokenFile,
+        "--state-file",
+        statePath(context),
+        "--lease-dir",
+        leaseDirectory,
+        "--keep-alive",
+        String(Boolean(request.keepAlive))
+      ],
+      {
+        detached: true,
+        stdio: ["ignore", log, log],
+        env: {
+          ...process.env,
+          UNIGAME_UNITYCLI_ROOT: join6(context.installRoot, "versions", toolkitVersion),
+          UNIGAME_UNITYCLI_DATA_PATH: context.dataPath
+        },
+        shell: false
+      }
+    );
+    closeSync(log);
+    child.unref();
+    response.changes.push({
+      kind: "process",
+      target: String(child.pid),
+      summary: "Started loopback Streamable HTTP MCP server."
+    });
+    response.data = { pid: child.pid, pendingHealth: true };
+    for (let attempt = 0; attempt < 30; attempt++) {
+      const current = await readJson(statePath(context));
+      if (current) {
+        response.data = { ...current, pendingHealth: false };
+        break;
+      }
+      await new Promise((resolvePromise) => setTimeout(resolvePromise, 100));
+    }
+    return response;
+  } finally {
+    await releaseBrokerStartLock(lockPath, lock);
+  }
 }
 async function health(context, response) {
   const state = await readJson(statePath(context));
   const serverExists = existsSync3(installedServer(context));
   const agents = discoverAgents(context);
+  const registry = await discoverEditors({ dataPath: context.dataPath });
+  const leaseCounts = await brokerLeaseCounts(context);
   response.data = {
     ...response.data,
     serverExists,
@@ -824,7 +1256,9 @@ async function health(context, response) {
         configured: agent.configPath ? await containsManaged(agent, context) : false
       }))
     ),
-    skillInstalled: existsSync3(skillPath(context))
+    skillInstalled: existsSync3(skillPath(context)),
+    registry,
+    ...leaseCounts
   };
   response.ok = response.errors.length === 0;
   return response;
@@ -833,41 +1267,133 @@ async function hasConflict(agent, context) {
   if (!agent.configPath || !existsSync3(agent.configPath)) return false;
   const text = await readText(agent.configPath);
   if (!text.includes(context.serverName)) return false;
-  return !text.includes(managedMarker) && !existsSync3(registrationMarkerPath(context, agent.id));
+  return !await containsManaged(agent, context);
 }
 async function containsManaged(agent, context) {
   const text = await readText(agent.configPath);
-  return text.includes(context.serverName) && (text.includes(managedMarker) || existsSync3(registrationMarkerPath(context, agent.id)) || agent.format === "dxt");
+  if (!text.includes(context.serverName))
+    return false;
+  const marker = await readJson(registrationMarkerPath(context, agent.id));
+  if (marker?.managedBy !== "com.unigame.unitycli.mcp" || marker.serverName !== context.serverName || typeof marker.fingerprint !== "string")
+    return false;
+  if (agent.format === "toml") {
+    return managedTomlFingerprint(text, context.serverName) === marker.fingerprint;
+  }
+  try {
+    const parsed = parseJsonc(text);
+    const value = agent.format === "dxt" ? parsed.server : parsed[agent.key]?.[context.serverName];
+    return value !== void 0 && fingerprint(value) === marker.fingerprint;
+  } catch {
+    return false;
+  }
 }
 function installedServer(context) {
-  return join4(context.installRoot, "versions", toolkitVersion, "dist", "index.js");
+  return join6(context.installRoot, "versions", toolkitVersion, "dist", "index.js");
 }
 function statePath(context) {
-  return join4(context.installRoot, "http-state.json");
+  return join6(context.installRoot, "http-state.json");
 }
 function skillPath(context) {
-  return join4(context.projectRoot, ".agents", "skills", "operate-unity-cli");
+  return join6(context.projectRoot, ".agents", "skills", "operate-unity-cli");
 }
 function skillMirrors(context) {
   return [
-    join4(context.projectRoot, ".cline", "skills", "operate-unity-cli"),
-    join4(context.projectRoot, ".claude", "skills", "operate-unity-cli")
+    join6(context.projectRoot, ".cline", "skills", "operate-unity-cli"),
+    join6(context.projectRoot, ".claude", "skills", "operate-unity-cli")
   ];
 }
 function registrationMarkerPath(context, agent) {
-  return join4(
+  return join6(
     context.installRoot,
     "registrations",
     `${context.serverName}.${agent}.json`
   );
 }
+async function brokerLeaseCounts(context) {
+  const directory = join6(context.installRoot, "broker-leases");
+  let entries;
+  try {
+    entries = await (await import("node:fs/promises")).readdir(directory, {
+      withFileTypes: true
+    });
+  } catch {
+    return { live_lease_count: 0, lease_count: 0 };
+  }
+  const files = entries.filter((entry) => entry.isFile() && entry.name.endsWith(".json"));
+  const live = await liveBrokerLeases(directory, { cleanupStale: false });
+  return { live_lease_count: live.length, lease_count: files.length };
+}
+function legacyRegistrationMarkerPath(context, agent) {
+  return join6(
+    context.installRoot,
+    "registrations",
+    `${context.legacyServerName}.${agent}.json`
+  );
+}
+async function legacyRegistrationMarkerPaths(context, agent) {
+  const directory = join6(context.installRoot, "registrations");
+  try {
+    return (await (await import("node:fs/promises")).readdir(directory)).filter((file) => file.startsWith("unigameUnityCli_") && file.endsWith(`.${agent}.json`)).map((file) => join6(directory, file));
+  } catch {
+    return [legacyRegistrationMarkerPath(context, agent)];
+  }
+}
+async function removeLegacyManagedRegistration(registration, context) {
+  if (!registration.configPath)
+    return false;
+  const markerDirectory = join6(context.installRoot, "registrations");
+  let markerFiles;
+  try {
+    markerFiles = await (await import("node:fs/promises")).readdir(markerDirectory);
+  } catch {
+    return false;
+  }
+  let removed = false;
+  for (const markerFile of markerFiles) {
+    if (!markerFile.startsWith("unigameUnityCli_") || !markerFile.endsWith(`.${registration.id}.json`))
+      continue;
+    const markerPath = join6(markerDirectory, markerFile);
+    const marker = await readJson(markerPath);
+    const legacyName = marker?.serverName;
+    if (marker?.managedBy !== "com.unigame.unitycli.mcp" || !legacyName?.startsWith("unigameUnityCli_") || typeof marker.fingerprint !== "string")
+      continue;
+    const text = await readText(registration.configPath);
+    if (registration.format === "toml") {
+      if (managedTomlFingerprint(text, legacyName) !== marker.fingerprint)
+        continue;
+      await atomicWrite2(
+        registration.configPath,
+        patchManagedToml(text, legacyName, "")
+      );
+    } else if (registration.format === "json" || registration.format === "jsonc") {
+      let value;
+      try {
+        const parsed = parseJsonc(text);
+        value = parsed[registration.key]?.[legacyName];
+      } catch {
+        continue;
+      }
+      if (value === void 0 || fingerprint(value) !== marker.fingerprint)
+        continue;
+      await atomicWrite2(
+        registration.configPath,
+        patchServerJsonc(text, registration.key, legacyName, void 0)
+      );
+    } else {
+      continue;
+    }
+    await rm2(markerPath, { force: true });
+    removed = true;
+  }
+  return removed;
+}
 async function writeRegistrationMarker(registration, context, value) {
   const path = registrationMarkerPath(context, registration.id);
   if (!value) {
-    await rm(path, { force: true });
+    await rm2(path, { force: true });
     return;
   }
-  await atomicWrite(
+  await atomicWrite2(
     path,
     JSON.stringify(
       {
@@ -885,25 +1411,25 @@ async function writeRegistrationMarker(registration, context, value) {
 }
 async function ensureToken(path) {
   if (existsSync3(path)) return;
-  await mkdir(dirname4(path), { recursive: true });
-  await writeFile(path, randomBytes(32).toString("base64url"), { mode: 384 });
+  await mkdir2(dirname5(path), { recursive: true });
+  await writeFile2(path, randomBytes(32).toString("base64url"), { mode: 384 });
 }
-async function atomicWrite(path, content) {
-  await mkdir(dirname4(path), { recursive: true });
+async function atomicWrite2(path, content) {
+  await mkdir2(dirname5(path), { recursive: true });
   const temporary = `${path}.tmp-${process.pid}`;
-  await writeFile(temporary, content, "utf8");
-  await rename(temporary, path);
+  await writeFile2(temporary, content, "utf8");
+  await rename2(temporary, path);
 }
 async function readText(path) {
   try {
-    return await readFile2(path, "utf8");
+    return await readFile4(path, "utf8");
   } catch {
     return "";
   }
 }
 async function readJson(path) {
   try {
-    return JSON.parse(await readFile2(path, "utf8"));
+    return JSON.parse(await readFile4(path, "utf8"));
   } catch {
     return null;
   }
@@ -924,13 +1450,16 @@ function isAlive(pid) {
     return false;
   }
 }
+function processStartedAtUtc() {
+  return new Date(Date.now() - process.uptime() * 1e3).toISOString();
+}
 function major() {
   return Number(process.versions.node.split(".")[0]);
 }
 async function directoryHash(root) {
-  const hash = createHash3("sha256");
+  const hash = createHash4("sha256");
   async function visit(path) {
-    const details = await stat(path);
+    const details = await stat3(path);
     if (details.isDirectory()) {
       const entries = (await import("node:fs/promises")).readdir(path, {
         withFileTypes: true
@@ -940,20 +1469,20 @@ async function directoryHash(root) {
       )) {
         if (entry.name === ".unigame-managed.json" || entry.name.endsWith(".meta"))
           continue;
-        await visit(join4(path, entry.name));
+        await visit(join6(path, entry.name));
       }
       return;
     }
     hash.update(path.slice(root.length).replaceAll("\\", "/"));
-    hash.update(await readFile2(path));
+    hash.update(await readFile4(path));
   }
   await visit(root);
   return hash.digest("hex");
 }
 async function installedPipelineVersion(projectPath) {
   for (const file of [
-    join4(projectPath, "Packages", "packages-lock.json"),
-    join4(projectPath, "Packages", "manifest.json")
+    join6(projectPath, "Packages", "packages-lock.json"),
+    join6(projectPath, "Packages", "manifest.json")
   ]) {
     const value = await readJson(file);
     const dependencies = value?.dependencies;

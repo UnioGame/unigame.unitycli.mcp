@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import { mkdtemp, mkdir, readFile, rm } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
@@ -14,6 +15,10 @@ const projectPath = join(root, "repo", "GameClient");
 const homePath = join(root, "home");
 const dataPath = join(root, "data");
 let httpStarted = false;
+const editorInstanceId = randomUUID();
+const ownerStartedAtUtc = new Date(
+  Date.now() - process.uptime() * 1_000,
+).toISOString();
 
 try {
   await mkdir(join(root, "repo", ".git"), { recursive: true });
@@ -70,6 +75,8 @@ try {
     confirm: true,
     port: 0,
     ownerPid: process.pid,
+    ownerStartedAtUtc,
+    editorInstanceId,
   });
   assert(served.ok && served.data.endpoint, "HTTP did not start");
   httpStarted = true;
@@ -89,6 +96,9 @@ try {
     operation: "serve",
     ...base,
     confirm: true,
+    ownerPid: process.pid,
+    ownerStartedAtUtc,
+    editorInstanceId,
     stop: true,
   });
   assert(stopped.ok, "HTTP did not stop");
@@ -130,6 +140,9 @@ try {
       homePath,
       dataPath,
       confirm: true,
+      ownerPid: process.pid,
+      ownerStartedAtUtc,
+      editorInstanceId,
       stop: true,
     }).catch(() => undefined);
   }

@@ -11,4 +11,5 @@ export declare function managedTomlBlock(name: string, value?: {
     headers?: Record<string, string>;
 }): string;
 export declare function patchManagedToml(text: string, name: string, block: string): string;
+export declare function managedTomlFingerprint(text: string, name: string): string | null;
 //# sourceMappingURL=config.d.ts.map

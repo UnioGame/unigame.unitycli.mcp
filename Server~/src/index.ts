@@ -11,6 +11,8 @@ if (transportName === "http") {
     port: Number(value("--port") ?? "0"),
     tokenFile: value("--token-file"),
     ownerPid: Number(value("--owner-pid") ?? "0") || undefined,
+    leaseDirectory: value("--lease-dir"),
+    keepAlive: value("--keep-alive") === "true",
     stateFile: value("--state-file"),
   });
 } else {

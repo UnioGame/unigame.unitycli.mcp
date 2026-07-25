@@ -81,10 +81,23 @@ export function inputSchema(tool) {
         if (parameter.required)
             required.push(parameter.name);
     }
-    if (tool.source === "editor" && !properties.projectPath) {
+    if (tool.source === "editor") {
+        properties.editor_instance_id = {
+            type: "string",
+            description: "Exact Editor session UUID. Highest-priority selector.",
+        };
+        properties.project_id = {
+            type: "string",
+            description: "Stable SHA-256 identifier of the normalized absolute project path.",
+        };
+        properties.project_path = {
+            type: "string",
+            description: "Absolute Unity project path.",
+        };
         properties.projectPath = {
             type: "string",
-            description: "Absolute Unity project path. Defaults to UNITY_PROJECT_PATH.",
+            deprecated: true,
+            description: "Deprecated alias for project_path. UNITY_PROJECT_PATH remains a one-release fallback.",
         };
     }
     if (tool.source === "player") {

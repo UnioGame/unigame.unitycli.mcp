@@ -7,6 +7,7 @@ import { runProcess } from "./process.js";
 import { redact } from "./redaction.js";
 import { requireConfirmation } from "./safety.js";
 import { resolveSecretInputs } from "./secrets.js";
+import { resolveEditor } from "./editor-registry.js";
 function arrayValue(value) {
     return Array.isArray(value) ? value : value == null ? [] : [value];
 }
@@ -20,9 +21,19 @@ function connectionFailure(tool, text) {
     }
     return null;
 }
-export async function executeCatalogTool(tool, input, signal) {
+export async function executeCatalogTool(tool, input, signal, registryOptions) {
     requireConfirmation(tool, input);
     const resolvedInput = await resolveSecretInputs(tool, input);
+    if (tool.source === "editor") {
+        const editor = await resolveEditor({
+            editor_instance_id: input.editor_instance_id,
+            project_id: input.project_id,
+            project_path: input.project_path,
+            projectPath: input.projectPath,
+        }, registryOptions);
+        resolvedInput.project_path = editor.project_path;
+        delete resolvedInput.projectPath;
+    }
     const cli = await resolveUnityCli();
     if (!cli) {
         throw new ToolkitError("CLI_NOT_FOUND", "Unity CLI was not found. Set UNITY_CLI_PATH or install the official CLI.");

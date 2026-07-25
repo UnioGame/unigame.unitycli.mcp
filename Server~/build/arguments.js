@@ -1,5 +1,8 @@
 const metaNames = new Set([
     "projectPath",
+    "project_path",
+    "project_id",
+    "editor_instance_id",
     "runtimePath",
     "runtime",
     "timeoutMs",
@@ -47,7 +50,11 @@ export function buildArguments(tool, input) {
         args.push(...tool.command);
     }
     else if (tool.source === "editor") {
-        target = input.projectPath ?? process.env.UNITY_PROJECT_PATH ?? null;
+        target =
+            input.project_path ??
+                input.projectPath ??
+                process.env.UNITY_PROJECT_PATH ??
+                null;
         args.push("command");
         if (target)
             args.push("--project-path", target);

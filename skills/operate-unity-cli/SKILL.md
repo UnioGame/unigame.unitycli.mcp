@@ -70,19 +70,24 @@ Never pass `name=value` in place of `--name value`.
 Prefer `UniGame/Unity CLI MCP`: verify the environment, use each agent's
 **MCP** toggle to set the desired **On/Off** state, and keep stdio plus the
 project-local skill enabled. Found clients start enabled on first use. Inspect
-**Review**, including pending enables, pending disables, and conflicts, then
-use **Apply** only after authorization. The guided screen installs the
-self-contained server, creates or removes private project-pinned
-registrations, and installs this skill locally.
+**Preview changes**, including pending enables, pending disables, and
+conflicts, then use **Apply preview** only after authorization. The guided
+screen installs the
+self-contained server, creates or removes the private global `unity_cli_mcp`
+registration, and installs this skill locally. Open Editors publish user-local
+leases; do not create one MCP registration per project.
 
 Use **Advanced** only for optional loopback HTTP, managed removal, rollback, or
 sanitized diagnostics. A normal reviewed Apply repairs missing managed state;
-force appears only when the plan detects a same-name conflict.
+unknown same-name registrations remain user-owned unless the user explicitly
+authorizes the reviewed `force` replacement.
 
-For standalone use, launch `Server~/dist/index.js` with Node. Configure `UNITY_PROJECT_PATH` for
-an Editor target or provide `projectPath` on each `unity_editor_*` call. The
-server exposes `unity_cli_*`, `unity_editor_*`, `unity_player_*`, and toolkit
-discovery tools.
+For standalone use, launch `Server~/dist/index.js` with Node. Select an Editor
+per `unity_editor_*` call with `editor_instance_id`, `project_id`, or
+`project_path`, in that priority order. `projectPath` and
+`UNITY_PROJECT_PATH` are deprecated fallbacks. If several ready Editors match,
+stop and ask which instance to use; never choose the newest. The server exposes
+`unity_cli_*`, `unity_editor_*`, `unity_player_*`, and toolkit discovery tools.
 
 Treat `CONFIRMATION_REQUIRED` as a safety boundary. Ask for authorization and
 retry with `confirm=true`; do not silently retry destructive commands.

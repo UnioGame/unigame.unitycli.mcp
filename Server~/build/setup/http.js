@@ -4,6 +4,7 @@ import { readFile, writeFile } from "node:fs/promises";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
 import { createServer } from "../server.js";
+import { liveBrokerLeases } from "./broker.js";
 export async function runHttpServer(options) {
     const sessions = new Map();
     const token = options.tokenFile
@@ -71,7 +72,6 @@ export async function runHttpServer(options) {
         await writeFile(options.stateFile, JSON.stringify({
             pid: process.pid,
             ownerPid: options.ownerPid ?? null,
-            projectPath: process.env.UNITY_PROJECT_PATH ?? null,
             host: options.host,
             port,
             endpoint: `http://${options.host}:${port}/mcp`,
@@ -86,15 +86,20 @@ export async function runHttpServer(options) {
     };
     process.once("SIGTERM", () => void close().then(() => process.exit(0)));
     process.once("SIGINT", () => void close().then(() => process.exit(0)));
-    if (options.ownerPid) {
-        const timer = setInterval(() => {
-            try {
-                process.kill(options.ownerPid, 0);
+    if (options.leaseDirectory && !options.keepAlive) {
+        let emptySince = null;
+        const timer = setInterval(async () => {
+            const live = await liveBrokerLeases(options.leaseDirectory);
+            if (live.length > 0) {
+                emptySince = null;
+                return;
             }
-            catch {
-                clearInterval(timer);
-                void close().then(() => process.exit(0));
-            }
+            emptySince ??= Date.now();
+            if (Date.now() - emptySince < 10_000)
+                return;
+            clearInterval(timer);
+            await close();
+            process.exit(0);
         }, 2_000);
         timer.unref();
     }

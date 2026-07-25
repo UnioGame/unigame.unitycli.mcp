@@ -64,30 +64,86 @@ namespace UniGame.UnityCli.Editor.Tests
         }
 
         [Test]
-        public void Layout_ContainsOneGuidedWorkflowAndAdvancedRecovery()
+        public void Layout_SeparatesGlobalRegistrationAndDynamicPublication()
         {
             var tree = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(
                 UnityCliSetupWindow.WindowUxmlPath);
             var root = tree.Instantiate();
 
+            Assert.NotNull(root.Q<Label>("this-project-id"));
+            Assert.NotNull(root.Q<Label>("this-editor-instance-id"));
+            Assert.NotNull(root.Q<Label>("this-connection-state"));
+            Assert.NotNull(root.Q<Label>("this-heartbeat"));
+            Assert.NotNull(root.Q<Label>("this-pipeline"));
+            Assert.NotNull(root.Q<VisualElement>("active-editors-container"));
+            Assert.NotNull(root.Q<Label>("active-editors-count"));
+            Assert.NotNull(root.Q<Label>("global-server-name"));
+            Assert.AreEqual("unity_cli_mcp", root.Q<Label>("global-server-name").text);
+            Assert.NotNull(root.Q<Label>("broker-port"));
+            Assert.NotNull(root.Q<Label>("broker-lease-count"));
+            Assert.NotNull(root.Q<Label>("broker-policy"));
             Assert.NotNull(root.Q<Button>("review-configuration"));
+            Assert.NotNull(root.Q<Button>("repair-configuration"));
             Assert.NotNull(root.Q<VisualElement>("preview-panel"));
             Assert.NotNull(root.Q<Button>("apply-configuration"));
             Assert.NotNull(root.Q<Foldout>("advanced-foldout"));
             Assert.NotNull(root.Q<Button>("remove-configuration"));
-            Assert.IsNull(root.Q<VisualElement>("page-tabs"));
-            Assert.AreEqual("Refresh", root.Q<Button>("refresh-status").text);
-            Assert.AreEqual("Review", root.Q<Button>("review-configuration").text);
-            Assert.AreEqual("Apply", root.Q<Button>("apply-configuration").text);
+            Assert.AreEqual("Refresh status", root.Q<Button>("refresh-status").text);
+            Assert.AreEqual("Preview changes", root.Q<Button>("review-configuration").text);
+            Assert.AreEqual("Preview repair", root.Q<Button>("repair-configuration").text);
+            Assert.AreEqual("Apply preview", root.Q<Button>("apply-configuration").text);
             Assert.AreEqual("Install", root.Q<Button>("install-cli").text);
             Assert.AreEqual("Install", root.Q<Button>("install-pipeline").text);
-            Assert.AreEqual("Docs", root.Q<Button>("open-cli-docs").text);
-            Assert.AreEqual("Docs", root.Q<Button>("open-node-docs").text);
-            Assert.AreEqual("Copy Command", root.Q<Button>("copy-cli-command").text);
+            Assert.AreEqual("Documentation", root.Q<Button>("open-cli-docs").text);
+            Assert.AreEqual("Documentation", root.Q<Button>("open-node-docs").text);
+            Assert.AreEqual("Copy command", root.Q<Button>("copy-cli-command").text);
             Assert.AreEqual("Start", root.Q<Button>("http-action").text);
-            Assert.AreEqual("Remove", root.Q<Button>("remove-configuration").text);
-            Assert.AreEqual("Rollback", root.Q<Button>("rollback-configuration").text);
-            Assert.AreEqual("Copy", root.Q<Button>("copy-diagnostics").text);
+            Assert.AreEqual(
+                "Remove managed data",
+                root.Q<Button>("remove-configuration").text);
+            Assert.AreEqual(
+                "Rollback latest backup",
+                root.Q<Button>("rollback-configuration").text);
+            Assert.AreEqual(
+                "Copy diagnostics",
+                root.Q<Button>("copy-diagnostics").text);
+        }
+
+        [Test]
+        public void Layout_UsesAccessibleLabelsForAdvancedInputs()
+        {
+            var tree = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(
+                UnityCliSetupWindow.WindowUxmlPath);
+            var root = tree.Instantiate();
+
+            Assert.AreEqual(
+                "Use shared loopback Streamable HTTP",
+                root.Q<Toggle>("http-transport").label);
+            Assert.AreEqual(
+                "Preferred HTTP port (0 = automatic)",
+                root.Q<UnityEngine.UIElements.IntegerField>("http-port").label);
+            Assert.AreEqual("Diagnostic log", root.Q<TextField>("diagnostics").label);
+            Assert.IsNotEmpty(root.Q<Button>("refresh-status").tooltip);
+            Assert.IsNotEmpty(root.Q<Button>("review-configuration").tooltip);
+        }
+
+        [TestCase(false, "plan", "apply")]
+        [TestCase(true, "repair", "repair")]
+        public void Window_ChoosesOperationForSelectedPreviewMode(
+            bool repairRequested,
+            string expectedPreview,
+            string expectedApply)
+        {
+            Assert.AreEqual(
+                expectedPreview,
+                UnityCliSetupWindow.PreviewOperation(repairRequested));
+            Assert.AreEqual(
+                expectedApply,
+                UnityCliSetupWindow.ApplyOperation(repairRequested));
+            Assert.IsTrue(
+                UnityCliSetupWindow.IsPreviewOperation(expectedPreview, false));
+            Assert.IsFalse(
+                UnityCliSetupWindow.IsPreviewOperation(expectedApply, true));
         }
 
         [Test]

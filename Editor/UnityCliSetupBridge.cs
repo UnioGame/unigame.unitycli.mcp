@@ -139,6 +139,17 @@ namespace UniGame.UnityCli.Editor
                 return "{\"ok\":false,\"errors\":[\"Node or setup manager is missing\"]}";
             try
             {
+                var setupRequest = JsonUtility.FromJson<UnityCliSetupRequest>(request);
+                if (setupRequest != null &&
+                    string.Equals(setupRequest.operation, "serve", StringComparison.Ordinal))
+                {
+                    if (string.IsNullOrEmpty(setupRequest.editorInstanceId))
+                        setupRequest.editorInstanceId = UnityCliEditorRegistry.EditorInstanceId();
+                    if (string.IsNullOrEmpty(setupRequest.ownerStartedAtUtc))
+                        setupRequest.ownerStartedAtUtc =
+                            UnityCliEditorRegistry.EditorStartedAtUtc();
+                    request = JsonUtility.ToJson(setupRequest);
+                }
                 var startInfo = new ProcessStartInfo
                 {
                     FileName = nodePath,
@@ -177,7 +188,7 @@ namespace UniGame.UnityCli.Editor
         public static string ConfirmationMessage(string operation, bool stop)
         {
             if (stop)
-                return "Stop the HTTP MCP process owned by this project?";
+                return "Release this Editor's HTTP lease? The shared broker stops only after the last live Editor lease closes.";
             switch (operation)
             {
                 case "serve":
@@ -187,7 +198,7 @@ namespace UniGame.UnityCli.Editor
                 case "rollback":
                     return "Restore the files captured by the last setup backup?";
                 default:
-                    return "Apply the previewed project-pinned registrations, server bundle, and selected skill copies? Existing files are backed up first.";
+                    return "Apply the previewed global registration, server bundle, and selected project-local skill copies? Existing files are backed up first.";
             }
         }
 
@@ -250,7 +261,11 @@ namespace UniGame.UnityCli.Editor
                 Escape(UnityCliSetupBridge.ProjectPath()) +
                 "\",\"packageRoot\":\"" +
                 Escape(package.resolvedPath) +
-                "\",\"confirm\":true,\"stop\":true}";
+                "\",\"confirm\":true,\"ownerPid\":" +
+                Process.GetCurrentProcess().Id +
+                ",\"editorInstanceId\":\"" +
+                Escape(UnityCliEditorRegistry.EditorInstanceId()) +
+                "\",\"stop\":true}";
             UnityCliSetupBridge.Execute(node, setup, request);
         }
 

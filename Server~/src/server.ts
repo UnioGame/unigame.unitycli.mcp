@@ -16,6 +16,12 @@ import { mergeLiveSchemas } from "./live-catalog.js";
 import { parseMixedOutput } from "./output.js";
 import { runProcess } from "./process.js";
 import type { CatalogTool, ToolCatalog } from "./types.js";
+import {
+  discoverEditors,
+  resolveEditor,
+  type EditorSelectors,
+  type RegistryOptions,
+} from "./editor-registry.js";
 
 const packageRoot =
   process.env.UNIGAME_UNITYCLI_ROOT ??
@@ -42,7 +48,14 @@ const serviceSchemas: Record<string, Record<string, unknown>> = {
   unity_connection_status: {
     type: "object",
     properties: {
-      projectPath: { type: "string" },
+      editor_instance_id: { type: "string" },
+      project_id: { type: "string" },
+      project_path: { type: "string" },
+      projectPath: {
+        type: "string",
+        deprecated: true,
+        description: "Deprecated alias for project_path.",
+      },
       runtimePath: { type: "string" },
       timeoutMs: { type: "integer", minimum: 100, maximum: 120_000 },
     },
@@ -88,7 +101,24 @@ async function cliVersion(): Promise<{
   return { path, installed, matches: installed === expectedCliVersion };
 }
 
-async function refreshLivePipelineSchemas(
+export function selectSchemaRefreshEditor(
+  snapshot: Awaited<ReturnType<typeof discoverEditors>>,
+): { projectPath?: string; warning?: string } {
+  const ready = snapshot.active_editors.filter(
+    (editor) => editor.connection_state === "ready",
+  );
+  return {
+    projectPath: ready[0]?.project_path,
+    ...(ready.length > 1
+      ? {
+          warning:
+            "Multiple ready Editors are available; refreshing the catalog schema from the first deterministic registry entry only.",
+        }
+      : {}),
+  };
+}
+
+export async function refreshLivePipelineSchemas(
   catalogs: ToolCatalog[],
 ): Promise<LiveRefreshStatus> {
   const status: LiveRefreshStatus = {
@@ -99,10 +129,17 @@ async function refreshLivePipelineSchemas(
   const cli = await resolveUnityCli();
   if (!cli) return status;
 
+  let editorProjectPath = process.env.UNITY_PROJECT_PATH;
+  if (!editorProjectPath) {
+    const snapshot = await discoverEditors();
+    const selected = selectSchemaRefreshEditor(snapshot);
+    if (selected.warning) status.warnings.push(selected.warning);
+    editorProjectPath = selected.projectPath;
+  }
   const targets = [
     {
       source: "editor" as const,
-      value: process.env.UNITY_PROJECT_PATH,
+      value: editorProjectPath,
       option: "--project-path",
     },
     {
@@ -142,6 +179,33 @@ async function refreshLivePipelineSchemas(
     status[target.source] = true;
   }
   return status;
+}
+
+export async function editorConnectionSnapshot(
+  selectors: EditorSelectors,
+  registryOptions?: RegistryOptions,
+) {
+  const snapshot = await discoverEditors(registryOptions);
+  let selectedEditor = null;
+  let selectionError = null;
+  try {
+    selectedEditor = await resolveEditor(selectors, registryOptions);
+  } catch (error) {
+    if (!(error instanceof ToolkitError) || !error.code.startsWith("TARGET_"))
+      throw error;
+    selectionError = {
+      code: error.code,
+      message: error.message,
+      details: error.details ?? null,
+    };
+  }
+  return {
+    active_editors: snapshot.active_editors,
+    stale_editors: snapshot.stale_editors,
+    corrupt_entries: snapshot.corrupt_entries,
+    selected_editor: selectedEditor,
+    selection_error: selectionError,
+  };
 }
 
 async function serviceCall(
@@ -206,19 +270,23 @@ async function serviceCall(
   }
 
   if (name === "unity_connection_status") {
-    const cli = await resolveUnityCli();
-    if (!cli) {
-      throw new ToolkitError(
-        "CLI_NOT_FOUND",
-        "Unity CLI was not found. Set UNITY_CLI_PATH or install it.",
-      );
-    }
+    const selectors: EditorSelectors = {
+      editor_instance_id: input.editor_instance_id as string | undefined,
+      project_id: input.project_id as string | undefined,
+      project_path: input.project_path as string | undefined,
+      projectPath: input.projectPath as string | undefined,
+    };
+    const editorStatus = await editorConnectionSnapshot(selectors);
     const timeoutMs = Number(input.timeoutMs ?? 30_000);
-    const statusArgs = ["status", "--format", "json"];
-    if (input.projectPath) statusArgs.push("--project", String(input.projectPath));
-    const editor = await runProcess(cli, statusArgs, { timeoutMs, signal });
     let player = null;
     if (input.runtimePath) {
+      const cli = await resolveUnityCli();
+      if (!cli) {
+        throw new ToolkitError(
+          "CLI_NOT_FOUND",
+          "Unity CLI was not found. Set UNITY_CLI_PATH or install it.",
+        );
+      }
       player = await runProcess(
         cli,
         ["list", "--runtime-path", String(input.runtimePath), "--format", "json"],
@@ -226,11 +294,8 @@ async function serviceCall(
       );
     }
     return {
-      ok: editor.exitCode === 0 && (!player || player.exitCode === 0),
-      editor: {
-        exitCode: editor.exitCode,
-        output: editor.stdout.trim(),
-      },
+      ok: !player || player.exitCode === 0,
+      ...editorStatus,
       player: player
         ? { exitCode: player.exitCode, output: player.stdout.trim() }
         : null,

@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://unigame.dev/schemas/unity-cli-mcp/broker-lease.v1.schema.json",
+  "title": "Unity CLI MCP Broker Lease",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "editor_instance_id",
+    "owner_pid",
+    "owner_started_at_utc",
+    "heartbeat_at_utc",
+    "lease_expires_at_utc"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "editor_instance_id": { "type": "string", "minLength": 1 },
+    "owner_pid": { "type": "integer", "minimum": 1 },
+    "owner_started_at_utc": { "type": "string", "format": "date-time" },
+    "heartbeat_at_utc": { "type": "string", "format": "date-time" },
+    "lease_expires_at_utc": { "type": "string", "format": "date-time" }
+  }
+}

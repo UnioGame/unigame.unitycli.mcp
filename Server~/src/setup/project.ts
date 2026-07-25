@@ -49,6 +49,7 @@ export function createContext(request: SetupRequest): SetupContext {
     homePath,
     dataPath,
     installRoot: join(dataPath, "unity-cli-mcp"),
-    serverName: projectServerName(projectPath),
+    serverName: "unity_cli_mcp",
+    legacyServerName: projectServerName(projectPath),
   };
 }

@@ -60,9 +60,11 @@ The guided screen checks the environment and switches MCP **On** for found
 agents on first use. Each agent row shows detection and integration state:
 **Found** or **Missing**, plus **On**, **Off**, **Pending On**,
 **Pending Off**, or **Conflict**. Keep stdio and the Agent Skill enabled,
-click **Review**, inspect the exact managed changes, then click **Apply**. The toolkit
-installs the self-contained server in stable user-local storage and creates a
-private registration pinned to this project.
+click **Preview changes**, inspect the exact managed changes, then click
+**Apply preview**. The toolkit
+installs the self-contained server in stable user-local storage and creates one
+global private registration named `unity_cli_mcp`. Every open Editor publishes
+a short-lived user-local lease, so several Unity projects work concurrently.
 
 > [!TIP]
 > The default setup is agent-managed stdio plus the project-local Agent Skill.
@@ -77,17 +79,17 @@ node unigame.unitycli.mcp/Server~/dist/index.js
 
 The committed self-contained bundle means consumers need only Node.js—npm and TypeScript are
 development dependencies. The server uses stdio. Set `UNITY_CLI_PATH` only
-when `unity` is not on `PATH`; optionally set `UNITY_PROJECT_PATH` to pin a
-running Editor.
+when `unity` is not on `PATH`. `UNITY_PROJECT_PATH` is a deprecated one-release
+fallback; prefer an Editor selector on each call.
 
 ### 3. Connect an agent
 
 The Control Center has first-line adapters for Codex, Cursor, VS Code / GitHub
-Copilot, Cline, and Claude Code. Claude Desktop receives a project-pinned
-DXT/export manifest. Registrations use:
+Copilot, Cline, and Claude Code. Claude Desktop keeps DXT/export support.
+Registrations use:
 
 ```text
-unigameUnityCli_<project>_<path-hash>
+unity_cli_mcp
 ```
 
 They are stored in private user configuration. Existing registrations and
@@ -102,12 +104,9 @@ Generic JSON configuration:
 ```json
 {
   "mcpServers": {
-    "unigame-unity-cli": {
+    "unity_cli_mcp": {
       "command": "node",
-      "args": ["<PACKAGE_ROOT>/Server~/dist/index.js"],
-      "env": {
-        "UNITY_PROJECT_PATH": "<UNITY_PROJECT>"
-      }
+      "args": ["<PACKAGE_ROOT>/Server~/dist/index.js"]
     }
   }
 }
@@ -116,10 +115,9 @@ Generic JSON configuration:
 Codex `config.toml`:
 
 ```toml
-[mcp_servers.unigame-unity-cli]
+[mcp_servers.unity_cli_mcp]
 command = "node"
 args = ["<PACKAGE_ROOT>/Server~/dist/index.js"]
-env = { UNITY_PROJECT_PATH = "<UNITY_PROJECT>" }
 ```
 
 VS Code `.vscode/mcp.json`:
@@ -127,11 +125,10 @@ VS Code `.vscode/mcp.json`:
 ```json
 {
   "servers": {
-    "unigame-unity-cli": {
+    "unity_cli_mcp": {
       "type": "stdio",
       "command": "node",
-      "args": ["<PACKAGE_ROOT>/Server~/dist/index.js"],
-      "env": { "UNITY_PROJECT_PATH": "<UNITY_PROJECT>" }
+      "args": ["<PACKAGE_ROOT>/Server~/dist/index.js"]
     }
   }
 }
@@ -166,8 +163,8 @@ From MCP call:
 
 ```text
 unity_catalog_status {}
-unity_connection_status { "projectPath": "<UNITY_PROJECT>" }
-unity_editor_editor_status { "projectPath": "<UNITY_PROJECT>" }
+unity_connection_status { "project_path": "<UNITY_PROJECT>" }
+unity_editor_editor_status { "project_id": "<PROJECT_ID>" }
 ```
 
 A ready response confirms the CLI executable, the versioned catalogs, the
@@ -177,14 +174,16 @@ Pipeline descriptor and the Editor connection.
 
 ```mermaid
 flowchart LR
-    Agent["MCP-capable agent"] -->|stdio| Server["UniGame MCP server<br/>Node.js"]
+    Agent["MCP-capable agent"] -->|one global stdio registration| Server["Shared UniGame MCP broker<br/>Node.js"]
     Skill["operate-unity-cli skill"] -. workflow guidance .-> Agent
+    Registry["User-local Editor leases<br/>heartbeat 2s · expiry 10s"] --> Server
+    Editor -->|atomic metadata only| Registry
     Server -->|spawn, no shell| CLI["Unity CLI"]
     CLI --> Standalone["Standalone services<br/>Editors · projects · auth · CI"]
     CLI -->|batch process| Batch["Unity Editor batch mode<br/>run · test · build"]
     CLI -->|localhost + descriptor token| Editor["Running Unity Editor<br/>Pipeline package"]
     CLI -->|localhost + descriptor token| Player["Development Player<br/>RuntimePipelineManager"]
-    Setup["Guided Unity setup<br/>Check · Review · Apply"] --> Agent
+    Setup["Guided Unity setup<br/>Probe · Preview · Apply"] --> Agent
     Setup --> Install["Stable user-local bundle"]
     Install --> Server
 ```
@@ -216,15 +215,19 @@ Every versioned command is an individual MCP tool:
 - `unity_editor_build`
 - `unity_player_runtime_status`
 
-Names use `unity_<source>_<command_path>`. Editor and Player tools remain
-discoverable when their target is offline and return actionable
-`EDITOR_NOT_CONNECTED` or `PLAYER_NOT_CONNECTED` errors.
+Names use `unity_<source>_<command_path>`. Editor selection never guesses the
+newest instance: ambiguity returns `TARGET_AMBIGUOUS`; missing, stale, and
+not-ready targets return the corresponding stable `TARGET_*` error. Player
+routing remains unchanged.
 
 Shared inputs:
 
 | Input | Purpose |
 | --- | --- |
-| `projectPath` | Select a Unity project/Editor |
+| `editor_instance_id` | Select one exact Editor session (highest priority) |
+| `project_id` | Select the sole ready Editor for a stable project ID |
+| `project_path` | Select by normalized absolute project path |
+| `projectPath` | Deprecated alias for `project_path` |
 | `runtimePath` | Select a Development Player descriptor directory |
 | `timeoutMs` | Bound the upstream process |
 | `confirm` | Acknowledge a high-risk operation |
@@ -236,27 +239,31 @@ All calls return a stable envelope with `ok`, `source`, `command`, `target`,
 
 ## Unity Control Center
 
-`UniGame → Unity CLI MCP` is one UI Toolkit guided setup screen:
+`UniGame → Unity CLI MCP` is a UI Toolkit Control Center:
 
 1. **Environment** checks Unity CLI, Node, Pipeline, and the bundled server.
-2. **Agents** gives each client an explicit **MCP** toggle and an **On/Off**
-   value. Found clients start enabled on first use. Toggle changes are only
-   desired state until Review and Apply; disabling an agent previews removal
-   of its managed registration.
-3. **Options** keeps the project-local Agent Skill enabled and recommends
-   agent-owned stdio.
-4. **Configuration** runs a read-only **Review**. The exact
-   create/update/remove targets, warnings, conflicts, and restart requirements
-   appear inline before **Apply** is enabled.
+2. **This Editor** shows the current instance ID, project ID, connection state,
+   heartbeat, descriptor, and the exact snake_case metadata published locally.
+3. **Active Editors** lists every live, stale, not-ready, duplicate, or corrupt
+   Editor registration so concurrent projects remain explicit.
+4. **Global Agent Registration** gives every client an MCP toggle, transport
+   selection, conflict state, and one shared `unity_cli_mcp` entry.
+5. **Shared HTTP Broker** displays endpoint, owner leases, health, and guarded
+   start/stop controls.
+6. **Skill** manages the project-local Agent Skill and mirrors.
+7. **Managed configuration** runs a read-only **Preview changes** operation.
+   Exact create/update/remove targets, warnings, conflicts, and restart
+   requirements appear inline before **Apply preview** is enabled.
 
-Apply creates an atomic backup and also restores missing managed state.
-Conflicting same-name targets reveal a force option only in that preview.
+Apply preview creates an atomic backup and also restores missing managed state.
+Unknown same-name registrations remain user-owned unless the reviewed Apply
+explicitly uses `force`.
 Success lists clients that need a restart; failures automatically expose
 sanitized diagnostics.
 
 The collapsed **Advanced** section contains only optional loopback HTTP
 Start/Stop, Remove managed configuration, Rollback when a backup exists, and
-Copy Diagnostics. Opening the window, refreshing status, or reviewing a plan
+Copy Diagnostics. Opening the window, refreshing status, or previewing a plan
 never mutates files or starts processes.
 
 Pipeline `0.4.0-exp.1` and the native Unity CLI each show a compact
@@ -269,14 +276,18 @@ edits Cloud/VCS state.
 
 ## stdio and HTTP lifecycle
 
-stdio is the default: the agent owns one process pinned to this Unity project.
+stdio is the default: the agent owns one global broker process.
 Optional HTTP binds only to `127.0.0.1`, validates Host and Origin, and accepts
-a capability stored in a protected local file. Its state records the PID,
-owner Editor PID, port, and endpoint.
+a capability stored in a protected local file. Each Editor owns an independent
+lease; closing one cannot stop sessions owned by another Editor.
 
-Advanced prevents duplicate startup, reports sanitized failures, and stops its
-HTTP process when the owning Editor exits. Use HTTP only for clients that need
-a shared endpoint.
+Advanced prevents duplicate startup and reports sanitized failures. HTTP stops
+ten seconds after the last live lease unless keep-alive is enabled.
+
+For an automatically assigned HTTP port, start the broker first, refresh until
+the actual endpoint is visible, then preview and apply agent registrations. A
+fixed free port may be previewed and applied before broker startup. Apply fails
+with `HTTP_ENDPOINT_NOT_READY` instead of writing a registration with port `0`.
 
 ## Common workflows
 
@@ -284,20 +295,20 @@ a shared endpoint.
 
 ```text
 unity_editor_create_scene {
-  "projectPath": "<UNITY_PROJECT>",
+  "project_path": "<UNITY_PROJECT>",
   "path": "Assets/Automation/Probe.unity",
   "confirm": true
 }
 
 unity_editor_create_gameobject {
-  "projectPath": "<UNITY_PROJECT>",
+  "project_path": "<UNITY_PROJECT>",
   "name": "ProbeCube",
   "primitive": "cube",
   "confirm": true
 }
 
 unity_editor_save_scene {
-  "projectPath": "<UNITY_PROJECT>",
+  "project_path": "<UNITY_PROJECT>",
   "confirm": true
 }
 ```
@@ -306,12 +317,12 @@ unity_editor_save_scene {
 
 ```text
 unity_editor_recompile {
-  "projectPath": "<UNITY_PROJECT>",
+  "project_path": "<UNITY_PROJECT>",
   "confirm": true
 }
-unity_editor_recompile_status { "projectPath": "<UNITY_PROJECT>" }
+unity_editor_recompile_status { "project_path": "<UNITY_PROJECT>" }
 unity_editor_run_tests {
-  "projectPath": "<UNITY_PROJECT>",
+  "project_path": "<UNITY_PROJECT>",
   "mode": "EditMode",
   "filter": "Company.Tests"
 }
@@ -347,7 +358,7 @@ a standalone Development Build. Point `runtimePath` to the folder containing
 - Pipeline's authoring root and native `dry_run`/`confirm` checks remain active.
 - Batch Editor logs can echo process arguments. Review logs before publishing
   CI artifacts.
-- Agent config changes are project-pinned and private; repository MCP config is
+- Agent config changes are global and private; repository MCP config is
   never changed by default.
 - Setup writes are previewed, backed up, atomic, fingerprinted, and reversible.
 
@@ -404,8 +415,9 @@ npm run test:e2e -- \
   unavailable; this is an upstream beta failure and is returned unchanged.
 - Online documentation can lag the executable. Installed recursive `--help`
   and live `unity list --format json` remain authoritative.
-- Client config formats can evolve. Adapters refuse unmanaged same-name
-  registrations and keep a rollback backup instead of overwriting them.
+- Client config formats can evolve. Adapters preserve unmanaged same-name
+  registrations by default; replacement requires a reviewed Apply with explicit
+  `force`, and a rollback backup is created first.
 - Node 20+ is required; the Control Center diagnoses it but does not install it.
 
 ## Documentation

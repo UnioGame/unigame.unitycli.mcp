@@ -72,8 +72,8 @@ export function discoverAgents(context) {
 }
 export function registrationValue(context, transport, serverPath, tokenFile, port = 0) {
     const env = {
-        UNITY_PROJECT_PATH: context.projectPath,
         UNIGAME_UNITYCLI_ROOT: dirname(dirname(serverPath)),
+        UNIGAME_UNITYCLI_DATA_PATH: context.dataPath,
     };
     const value = transport === "http"
         ? {
