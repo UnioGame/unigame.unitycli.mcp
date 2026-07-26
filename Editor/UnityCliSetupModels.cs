@@ -1,6 +1,4 @@
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using UnityEngine;
 
 namespace UniGame.UnityCli.Editor
@@ -9,21 +7,24 @@ namespace UniGame.UnityCli.Editor
     internal sealed class UnityCliSetupRequest
     {
         public string operation;
-        public string projectPath;
-        public string packageRoot;
-        public string[] agents;
-        public string[] disabledAgents;
+        public string project_path;
+        public string package_root;
+        public string[] agent_ids = Array.Empty<string>();
+        public string[] disabled_agent_ids = Array.Empty<string>();
+        public string[] skill_ids = Array.Empty<string>();
+        public string[] disabled_skill_ids = Array.Empty<string>();
+        public string target_kind;
+        public string target_id;
         public string transport;
         public bool confirm;
         public bool force;
-        public bool installServer;
-        public bool installSkill;
+        public bool install_server;
         public int port;
-        public int ownerPid;
-        public string editorInstanceId;
-        public string ownerStartedAtUtc;
-        public bool keepAlive;
-        public string backupId;
+        public int owner_pid;
+        public string editor_instance_id;
+        public string owner_started_at_utc;
+        public bool keep_alive;
+        public string backup_id;
         public bool stop;
     }
 
@@ -36,7 +37,7 @@ namespace UniGame.UnityCli.Editor
         public string[] warnings = Array.Empty<string>();
         public string[] errors = Array.Empty<string>();
         public string backup;
-        public string[] restartRequired = Array.Empty<string>();
+        public string[] restart_required = Array.Empty<string>();
         public UnityCliSetupData data = new UnityCliSetupData();
 
         public static UnityCliSetupResponse Parse(string json)
@@ -60,61 +61,24 @@ namespace UniGame.UnityCli.Editor
         public string kind;
         public string target;
         public string summary;
-        public string agent;
+        public string agent_id;
+        public string skill_id;
         public bool conflict;
     }
 
     [Serializable]
     internal sealed class UnityCliSetupData
     {
-        public string toolkitVersion;
+        public string toolkit_version;
         public UnityCliNodeStatus node = new UnityCliNodeStatus();
-        public UnityCliExecutableStatus unityCli = new UnityCliExecutableStatus();
+        public UnityCliExecutableStatus unity_cli = new UnityCliExecutableStatus();
         public UnityCliPipelineStatus pipeline = new UnityCliPipelineStatus();
-        public UnityCliEditorStatus editor = new UnityCliEditorStatus();
-        public string projectPath;
-        public string projectRoot;
-        public string serverName;
-        public string installRoot;
-        public bool serverInstalled;
-        public bool serverExists;
-        public bool serverExecutable;
+        public UnityCliCurrentEditorStatus current_editor = new UnityCliCurrentEditorStatus();
+        public UnityCliOfficialMcpStatus official_mcp = new UnityCliOfficialMcpStatus();
         public UnityCliAgentStatus[] agents = Array.Empty<UnityCliAgentStatus>();
-        public bool skillInstalled;
-        public UnityCliHttpStatus http = new UnityCliHttpStatus();
-        public UnityCliRegistrationStatus[] registrations =
-            Array.Empty<UnityCliRegistrationStatus>();
-        public UnityCliEditorRegistrySnapshot registry = new UnityCliEditorRegistrySnapshot();
-        public int live_lease_count;
-        public int lease_count;
-        public bool stopped;
-        public bool alreadyRunning;
-        public bool pendingHealth;
-        public int pid;
-        public int port;
-    }
-
-    [Serializable]
-    internal sealed class UnityCliEditorRegistrySnapshot
-    {
-        public UnityCliEditorMetadata[] active_editors = Array.Empty<UnityCliEditorMetadata>();
-        public UnityCliStaleEditorMetadata[] stale_editors =
-            Array.Empty<UnityCliStaleEditorMetadata>();
-        public UnityCliCorruptRegistryEntry[] corrupt_entries =
-            Array.Empty<UnityCliCorruptRegistryEntry>();
-    }
-
-    [Serializable]
-    internal sealed class UnityCliStaleEditorMetadata : UnityCliEditorMetadata
-    {
-        public string stale_reason;
-    }
-
-    [Serializable]
-    internal sealed class UnityCliCorruptRegistryEntry
-    {
-        public string path;
-        public string error;
+        public UnityCliSkillStatus[] skills = Array.Empty<UnityCliSkillStatus>();
+        public UnityCliAdvancedBrokerStatus advanced_broker =
+            new UnityCliAdvancedBrokerStatus();
     }
 
     [Serializable]
@@ -131,6 +95,8 @@ namespace UniGame.UnityCli.Editor
         public string path;
         public string version;
         public string expected;
+        public bool ready;
+        public string error;
     }
 
     [Serializable]
@@ -139,234 +105,61 @@ namespace UniGame.UnityCli.Editor
         public bool installed;
         public string version;
         public string expected;
+        public bool ready;
+        public string error;
     }
 
     [Serializable]
-    internal sealed class UnityCliEditorStatus
+    internal sealed class UnityCliCurrentEditorStatus
     {
-        public bool connected;
-        public string status;
+        public string project_path;
+        public string project_id;
+        public string editor_instance_id;
+        public string editor_version;
+        public string state;
+        public bool ready;
+        public int tool_count;
+        public string error;
+    }
+
+    [Serializable]
+    internal sealed class UnityCliOfficialMcpStatus
+    {
+        public string state = "not_ready";
+        public int tool_count;
+        public string error;
     }
 
     [Serializable]
     internal sealed class UnityCliAgentStatus
     {
-        public string id;
-        public string displayName;
-        public bool installed;
-        public string configPath;
-        public string format;
-        public string key;
-        public bool restartRequired;
-        public bool configured;
-        public bool conflict;
+        public string agent_id;
+        public string display_name;
+        public bool detected;
+        public string registration_state;
+        public bool managed;
+        public bool restart_required;
     }
 
     [Serializable]
-    internal sealed class UnityCliHttpStatus
+    internal sealed class UnityCliSkillStatus
     {
-        public int pid;
+        public string skill_id;
+        public string display_name;
+        public string state;
+        public string install_path;
+    }
+
+    [Serializable]
+    internal sealed class UnityCliAdvancedBrokerStatus
+    {
+        public string state;
+        public string transport;
+        public string endpoint;
         public int port;
-        public int ownerPid;
-        public bool alive;
-        public string url;
-    }
-
-    [Serializable]
-    internal sealed class UnityCliRegistrationStatus
-    {
-        public string id;
-        public bool configured;
-    }
-
-    internal enum UnityCliEnvironmentState
-    {
-        Ready,
-        Missing,
-        Warning,
-        Error,
-    }
-
-    internal sealed class UnityCliSetupPresenter
-    {
-        internal static readonly string[] SupportedAgentIds =
-        {
-            "codex",
-            "cursor",
-            "vscode",
-            "cline",
-            "claude-code",
-            "claude-desktop",
-        };
-
-        private readonly HashSet<string> _selectedAgents =
-            new HashSet<string>(StringComparer.Ordinal);
-        private readonly Dictionary<string, UnityCliAgentStatus> _agentStatuses =
-            new Dictionary<string, UnityCliAgentStatus>(StringComparer.Ordinal);
-
-        public bool Busy { get; private set; }
-        public bool PreviewReady { get; private set; }
-        public bool ForceVisible { get; private set; }
-        public bool Force { get; set; }
-        public bool InstallSkill { get; set; } = true;
-        public bool UseHttp { get; set; }
-        public int HttpPort { get; set; }
-        public string LastBackup { get; private set; } = string.Empty;
-        public UnityCliSetupResponse LastResponse { get; private set; }
-        public IReadOnlyCollection<string> SelectedAgents => _selectedAgents;
-        public IReadOnlyCollection<string> DisabledAgents => _agentStatuses.Values
-            .Where(status => status.configured && !_selectedAgents.Contains(status.id))
-            .Select(status => status.id)
-            .ToArray();
-
-        public bool CanReview(
-            string nodePath,
-            string nodeVersion,
-            string cliPath,
-            string setupPath)
-        {
-            return !Busy &&
-                   !string.IsNullOrEmpty(nodePath) &&
-                   IsSupportedNode(nodeVersion) &&
-                   !string.IsNullOrEmpty(cliPath) &&
-                   !string.IsNullOrEmpty(setupPath) &&
-                   (_selectedAgents.Count > 0 || DisabledAgents.Count > 0);
-        }
-
-        public bool CanApply(
-            string nodePath,
-            string nodeVersion,
-            string cliPath,
-            string setupPath)
-        {
-            return PreviewReady && CanReview(nodePath, nodeVersion, cliPath, setupPath);
-        }
-
-        public void InitializeAgents(
-            IEnumerable<UnityCliAgentStatus> agents,
-            bool preferencesExist,
-            IEnumerable<string> savedSelection)
-        {
-            _selectedAgents.Clear();
-            UpdateAgentStatuses(agents);
-            if (preferencesExist)
-            {
-                foreach (var id in savedSelection ?? Array.Empty<string>())
-                    if (SupportedAgentIds.Contains(id) &&
-                        (_agentStatuses.Count == 0 || CanToggleAgent(id)))
-                        _selectedAgents.Add(id);
-                return;
-            }
-
-            foreach (var agent in agents ?? Array.Empty<UnityCliAgentStatus>())
-                if (agent != null && agent.installed && SupportedAgentIds.Contains(agent.id))
-                    _selectedAgents.Add(agent.id);
-        }
-
-        public void UpdateAgentStatuses(IEnumerable<UnityCliAgentStatus> agents)
-        {
-            _agentStatuses.Clear();
-            foreach (var agent in agents ?? Array.Empty<UnityCliAgentStatus>())
-            {
-                if (agent == null || !SupportedAgentIds.Contains(agent.id))
-                    continue;
-                _agentStatuses[agent.id] = agent;
-            }
-
-            _selectedAgents.RemoveWhere(id =>
-                !_agentStatuses.TryGetValue(id, out var status) ||
-                (!status.installed && !status.configured));
-        }
-
-        public void SetAgentSelected(string id, bool selected)
-        {
-            if (selected)
-                _selectedAgents.Add(id);
-            else
-                _selectedAgents.Remove(id);
-            InvalidatePreview();
-        }
-
-        public bool IsAgentSelected(string id)
-        {
-            return _selectedAgents.Contains(id);
-        }
-
-        public bool CanToggleAgent(string id)
-        {
-            return _agentStatuses.TryGetValue(id, out var status) &&
-                   (status.installed || status.configured);
-        }
-
-        public string AgentDetection(string id)
-        {
-            return _agentStatuses.TryGetValue(id, out var status) && status.installed
-                ? "Found"
-                : "Missing";
-        }
-
-        public string AgentIntegration(string id)
-        {
-            if (!_agentStatuses.TryGetValue(id, out var status))
-                return "Off";
-            if (status.conflict)
-                return "Conflict";
-            var selected = _selectedAgents.Contains(id);
-            if (selected && !status.configured)
-                return "Pending On";
-            if (!selected && status.configured)
-                return "Pending Off";
-            return status.configured ? "On" : "Off";
-        }
-
-        public string AgentToggleValue(string id)
-        {
-            return _selectedAgents.Contains(id) ? "On" : "Off";
-        }
-
-        public void SetBusy(bool busy)
-        {
-            Busy = busy;
-        }
-
-        public void AcceptResponse(UnityCliSetupResponse response)
-        {
-            LastResponse = response;
-            if (!string.IsNullOrEmpty(response?.backup))
-                LastBackup = response.backup;
-
-            if ((string.Equals(response?.operation, "plan", StringComparison.Ordinal) ||
-                 string.Equals(response?.operation, "repair", StringComparison.Ordinal)) &&
-                response.ok)
-            {
-                PreviewReady = true;
-                ForceVisible = response.changes?.Any(change => change.conflict) == true;
-                if (!ForceVisible)
-                    Force = false;
-                return;
-            }
-
-            PreviewReady = false;
-            ForceVisible = false;
-            Force = false;
-        }
-
-        public void InvalidatePreview()
-        {
-            PreviewReady = false;
-            ForceVisible = false;
-            Force = false;
-        }
-
-        public static bool IsSupportedNode(string version)
-        {
-            if (string.IsNullOrWhiteSpace(version))
-                return false;
-            var normalized = version.Trim().TrimStart('v');
-            var separator = normalized.IndexOf('.');
-            if (separator >= 0)
-                normalized = normalized.Substring(0, separator);
-            return int.TryParse(normalized, out var major) && major >= 20;
-        }
+        public int pid;
+        public bool running;
+        public int connected_project_count;
+        public string error;
     }
 }

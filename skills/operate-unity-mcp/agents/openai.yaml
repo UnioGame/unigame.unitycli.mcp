@@ -1,0 +1,4 @@
+interface:
+  display_name: "Operate Unity MCP"
+  short_description: "Operate Unity projects through the official Unity MCP server"
+  default_prompt: "Use the official Unity MCP server to inspect or modify the selected Unity project safely."

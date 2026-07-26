@@ -4,186 +4,108 @@
         <ui:VisualElement class="page">
             <ui:VisualElement class="hero">
                 <ui:VisualElement class="hero-copy">
-                    <ui:Label text="Unity CLI MCP Control Center" class="hero-title" />
-                    <ui:Label text="One global agent endpoint. Every open Unity Editor publishes itself dynamically." class="hero-subtitle" />
+                    <ui:Label text="Unity CLI MCP" class="hero-title" />
+                    <ui:Label text="Connect coding agents to this Unity project through Unity's official CLI." class="hero-subtitle" />
                 </ui:VisualElement>
                 <ui:VisualElement class="hero-actions">
-                    <ui:Label name="page-status" text="Checking environment…" class="page-status" />
-                    <ui:Button name="refresh-status" text="Refresh status" tooltip="Refresh read-only diagnostics" class="button-secondary" />
+                    <ui:Label name="page-status" text="Checking…" class="page-status" />
+                    <ui:Button name="refresh-status" text="Refresh" tooltip="Refresh readiness without changing configuration" class="button-secondary" />
                 </ui:VisualElement>
             </ui:VisualElement>
 
-            <ui:VisualElement class="section">
-                <ui:Label text="Overview" class="section-title" />
-                <ui:Label text="Install the required components, then start the server or connect an agent." class="section-description" />
-                <ui:VisualElement class="environment-grid">
-                    <ui:VisualElement name="cli-card" class="environment-card">
-                        <ui:VisualElement class="status-header">
+            <ui:VisualElement class="section compact-section">
+                <ui:Label text="Readiness" class="section-title" />
+                <ui:VisualElement class="readiness-row">
+                    <ui:VisualElement name="cli-card" class="readiness-card">
+                        <ui:VisualElement name="cli-lamp" class="status-lamp" />
+                        <ui:VisualElement class="readiness-copy">
                             <ui:Label text="Unity CLI" class="card-title" />
-                            <ui:Label name="cli-status" text="Missing" class="status-pill" />
+                            <ui:Label name="cli-detail" text="Checking…" class="card-detail" />
+                            <ui:Label name="cli-reason" text="" class="disabled-reason" />
                         </ui:VisualElement>
-                        <ui:Label name="cli-version" text="Checking…" class="card-value" />
-                        <ui:Label name="cli-detail" text="" class="card-detail" />
-                        <ui:VisualElement class="card-actions">
-                            <ui:Button name="install-cli" text="Install" class="button-install" />
-                            <ui:Button name="copy-cli-command" text="Copy command" class="button-link install-fallback" />
-                            <ui:Button name="open-cli-docs" text="Documentation" class="button-link" />
-                        </ui:VisualElement>
+                        <ui:Button name="install-cli" text="Install" class="button-primary button-compact" />
                     </ui:VisualElement>
-                    <ui:VisualElement name="node-card" class="environment-card">
-                        <ui:VisualElement class="status-header">
-                            <ui:Label text="Node.js" class="card-title" />
-                            <ui:Label name="node-status" text="Missing" class="status-pill" />
-                        </ui:VisualElement>
-                        <ui:Label name="node-version" text="Checking…" class="card-value" />
-                        <ui:Label name="node-detail" text="" class="card-detail" />
-                        <ui:Button name="open-node-docs" text="Documentation" class="button-link" />
-                    </ui:VisualElement>
-                    <ui:VisualElement name="pipeline-card" class="environment-card">
-                        <ui:VisualElement class="status-header">
+                    <ui:VisualElement name="pipeline-card" class="readiness-card">
+                        <ui:VisualElement name="pipeline-lamp" class="status-lamp" />
+                        <ui:VisualElement class="readiness-copy">
                             <ui:Label text="Pipeline" class="card-title" />
-                            <ui:Label name="pipeline-status" text="Warning" class="status-pill" />
+                            <ui:Label name="pipeline-detail" text="Checking…" class="card-detail" />
+                            <ui:Label name="pipeline-reason" text="" class="disabled-reason" />
                         </ui:VisualElement>
-                        <ui:Label name="pipeline-version" text="Checking…" class="card-value" />
-                        <ui:Label name="pipeline-detail" text="" class="card-detail" />
-                        <ui:Button name="install-pipeline" text="Install" class="button-install" />
+                        <ui:Button name="install-pipeline" text="Install" class="button-primary button-compact" />
+                    </ui:VisualElement>
+                    <ui:VisualElement name="editor-card" class="readiness-card">
+                        <ui:VisualElement name="editor-lamp" class="status-lamp" />
+                        <ui:VisualElement class="readiness-copy">
+                            <ui:Label text="This Editor" class="card-title" />
+                            <ui:Label name="editor-detail" text="Checking…" class="card-detail" />
+                            <ui:Label name="editor-reason" text="" class="disabled-reason" />
+                        </ui:VisualElement>
                     </ui:VisualElement>
                 </ui:VisualElement>
             </ui:VisualElement>
 
-            <ui:VisualElement name="server-section" class="section server-section">
-                <ui:VisualElement class="server-heading">
+            <ui:VisualElement name="official-mcp-card" class="section official-mcp-card">
+                <ui:VisualElement class="mcp-card-header">
+                    <ui:VisualElement name="official-mcp-lamp" class="status-lamp status-lamp-large" />
+                    <ui:VisualElement class="mcp-card-copy">
+                        <ui:Label text="Official Unity stdio MCP" class="section-title" />
+                        <ui:Label text="The agent starts this process when it connects. There is no server to start here." class="section-description" />
+                    </ui:VisualElement>
+                    <ui:Label name="official-mcp-state" text="Not ready" class="status-pill state-neutral" />
+                </ui:VisualElement>
+                <ui:Label name="official-mcp-detail" text="Complete readiness checks before testing." class="mcp-result" />
+                <ui:Button name="test-official-mcp" text="Test MCP" tooltip="Launch Unity CLI stdio, initialize MCP, then request tools/list" class="button-primary button-large" />
+                <ui:Label name="test-official-mcp-reason" text="" class="disabled-reason" />
+            </ui:VisualElement>
+
+            <ui:VisualElement class="section">
+                <ui:VisualElement class="section-heading-row">
                     <ui:VisualElement>
-                        <ui:Label text="MCP Server" class="section-title server-section-title" />
-                        <ui:Label text="The server connects agents to every open Unity project." class="section-description server-section-description" />
+                        <ui:Label text="Agents" class="section-title" />
+                        <ui:Label text="Detected agents are shown first." class="section-description" />
                     </ui:VisualElement>
-                    <ui:Label name="broker-state" text="Stopped" class="server-status-badge server-status-stopped" />
+                    <ui:Button name="show-all-agents" text="Show all" class="button-secondary button-compact" />
                 </ui:VisualElement>
-                <ui:VisualElement class="server-control-card">
-                    <ui:VisualElement name="server-lamp" class="server-lamp server-lamp-stopped" />
-                    <ui:VisualElement class="server-control-copy">
-                        <ui:Label name="server-primary-title" text="HTTP server is stopped" class="server-primary-title" />
-                        <ui:Label name="http-status" text="stdio remains available and starts automatically when an agent connects." class="server-primary-detail" />
-                    </ui:VisualElement>
-                    <ui:Button name="http-action" text="Start HTTP server" class="button-server-start" />
-                </ui:VisualElement>
-                <ui:VisualElement class="server-summary">
-                    <ui:VisualElement class="server-summary-item">
-                        <ui:Label text="Transport" class="detail-label" />
-                        <ui:Label name="server-transport-value" text="stdio · agent managed" class="server-summary-value" />
-                    </ui:VisualElement>
-                    <ui:VisualElement class="server-summary-item">
-                        <ui:Label text="Endpoint" class="detail-label" />
-                        <ui:Label name="broker-port" text="Starts automatically" class="server-summary-value" />
-                    </ui:VisualElement>
-                    <ui:VisualElement class="server-summary-item">
-                        <ui:Label text="Projects" class="detail-label" />
-                        <ui:Label name="broker-lease-count" text="0 connected" class="server-summary-value" />
-                    </ui:VisualElement>
-                </ui:VisualElement>
-                <ui:Foldout name="http-options" text="HTTP options" value="false" class="server-options">
-                    <uie:IntegerField name="http-port" label="Preferred port (0 = automatic)" value="0" />
-                    <ui:Label text="HTTP listens only on 127.0.0.1 and stops after the last owning Editor closes." class="card-detail" />
-                </ui:Foldout>
+                <ui:VisualElement name="agents-container" class="cards-list" />
+                <ui:Label name="agents-empty" text="No supported agents detected." class="empty-detail" />
             </ui:VisualElement>
 
             <ui:VisualElement class="section">
-                <ui:VisualElement class="section-heading-row">
-                    <ui:VisualElement class="section-heading-copy">
-                        <ui:Label text="This Editor" class="section-title" />
-                        <ui:Label text="Connection to this Unity project" class="eyebrow" />
-                    </ui:VisualElement>
-                    <ui:Label name="this-editor-state" text="No Editor" class="status-pill state-neutral" />
-                </ui:VisualElement>
-                <ui:VisualElement class="details-grid">
-                    <ui:VisualElement class="detail-cell">
-                        <ui:Label text="Project" class="detail-label" />
-                        <ui:Label name="this-project-name" text="Checking…" class="detail-value" />
-                    </ui:VisualElement>
-                    <ui:VisualElement class="detail-cell">
-                        <ui:Label text="Editor tools" class="detail-label" />
-                        <ui:Label name="this-connection-state" text="Not published" class="detail-value" />
-                    </ui:VisualElement>
-                    <ui:VisualElement class="detail-cell">
-                        <ui:Label text="Pipeline" class="detail-label" />
-                        <ui:Label name="this-pipeline" text="Checking…" class="detail-value" />
-                    </ui:VisualElement>
-                </ui:VisualElement>
-                <ui:VisualElement name="this-editor-notices" class="notices-container" />
-            </ui:VisualElement>
-
-            <ui:VisualElement class="section">
-                <ui:VisualElement class="section-heading-row">
-                    <ui:VisualElement class="section-heading-copy">
-                        <ui:Label text="Active Editors" class="section-title" />
-                        <ui:Label text="Live publications currently visible to the shared broker" class="eyebrow" />
-                    </ui:VisualElement>
-                    <ui:Label name="active-editors-count" text="0 Editors" class="count-pill" />
-                </ui:VisualElement>
-                <ui:VisualElement name="active-editors-container" class="editors-grid" />
-                <ui:VisualElement name="active-editors-empty" class="empty-state">
-                    <ui:Label text="No Editor publications" class="empty-title" />
-                    <ui:Label text="Open a project with Pipeline enabled, or refresh after its first heartbeat." class="empty-detail" />
-                </ui:VisualElement>
-                <ui:VisualElement name="active-editors-notices" class="notices-container" />
-            </ui:VisualElement>
-
-            <ui:VisualElement class="section">
-                <ui:Label text="Agent Integration" class="section-title" />
-                <ui:Label text="Enable MCP for the agents that should control your Unity projects." class="section-description" />
-                <ui:Label name="global-server-name" text="unity_cli_mcp" class="hidden-technical-value" />
-                <ui:VisualElement name="agents-container" class="agents-grid" />
-            </ui:VisualElement>
-
-            <ui:VisualElement class="section options-section">
-                <ui:Label text="Skill" class="section-title" />
-                <ui:Toggle name="install-skill" label="Install the project-local operate-unity-cli Agent Skill" value="true" tooltip="Include the managed skill copy in the next preview" class="option-toggle" />
-                <ui:Label text="Skill installation is optional and only changes after Preview and Apply." class="section-description" />
-            </ui:VisualElement>
-
-            <ui:VisualElement class="section configuration-section">
-                <ui:VisualElement class="configuration-copy">
-                    <ui:Label text="Managed configuration" class="section-title" />
-                    <ui:Label text="Preview is read-only. Apply or Repair is enabled only after you inspect the exact managed changes." class="section-description" />
-                </ui:VisualElement>
-                <ui:VisualElement class="configuration-actions">
-                    <ui:Button name="review-configuration" text="Preview changes" tooltip="Read-only configuration preview" class="button-primary review-button" />
-                    <ui:Button name="repair-configuration" text="Preview repair" tooltip="Preview a repair using the same confirmed managed workflow" class="button-secondary" />
-                </ui:VisualElement>
-            </ui:VisualElement>
-
-            <ui:VisualElement name="preview-panel" class="section preview-panel">
-                <ui:Label name="preview-title" text="Configuration preview" class="section-title" />
-                <ui:Label text="The following files or managed entries will change:" class="section-description" />
-                <ui:VisualElement name="changes-container" class="changes-container" />
-                <ui:VisualElement name="warnings-container" class="warnings-container" />
-                <ui:Toggle name="force-conflicts" label="Replace the conflicting same-name target" class="force-toggle" />
-                <ui:VisualElement class="preview-actions">
-                    <ui:Label text="Apply creates a backup before any mutation." class="section-description preview-note" />
-                    <ui:Button name="apply-configuration" text="Apply preview" class="button-primary" />
-                </ui:VisualElement>
+                <ui:Label text="Skills" class="section-title" />
+                <ui:Label text="Optional workflow guidance installed for your agents." class="section-description" />
+                <ui:VisualElement name="skills-container" class="skill-grid" />
             </ui:VisualElement>
 
             <ui:VisualElement name="result-panel" class="section result-panel">
-                <ui:Label name="result-title" text="Configuration is ready" class="section-title" />
+                <ui:Label name="result-title" text="" class="card-title" />
                 <ui:Label name="result-details" text="" class="result-details" />
-                <ui:VisualElement name="restart-container" class="restart-container" />
             </ui:VisualElement>
 
-            <ui:Foldout name="advanced-foldout" text="Diagnostics and recovery" value="false" class="advanced">
-                <ui:Label text="Managed-state recovery and sanitized technical diagnostics." class="section-description" />
+            <ui:Foldout name="advanced-foldout" text="Advanced" value="false" class="advanced">
+                <ui:Label text="Custom broker, loopback HTTP, recovery, and sanitized diagnostics." class="section-description" />
                 <ui:VisualElement class="advanced-group">
-                    <ui:Label text="Managed state" class="card-title" />
-                    <ui:Label text="Remove touches only toolkit-managed registrations and skill copies. Rollback restores the latest backup." class="card-detail" />
-                    <ui:VisualElement class="advanced-row advanced-actions">
+                    <ui:VisualElement class="section-heading-row">
+                        <ui:VisualElement>
+                            <ui:Label text="Custom broker / HTTP" class="card-title" />
+                            <ui:Label name="broker-status" text="Stopped" class="card-detail" />
+                        </ui:VisualElement>
+                        <ui:Button name="http-action" text="Start HTTP" class="button-secondary" />
+                    </ui:VisualElement>
+                    <uie:IntegerField name="http-port" label="Preferred port (0 = automatic)" value="0" />
+                    <ui:Label name="http-disabled-reason" text="" class="disabled-reason" />
+                </ui:VisualElement>
+                <ui:VisualElement class="advanced-group">
+                    <ui:Label text="Recovery" class="card-title" />
+                    <ui:VisualElement class="advanced-row">
                         <ui:Button name="remove-configuration" text="Remove managed data" class="button-danger" />
                         <ui:Button name="rollback-configuration" text="Rollback latest backup" class="button-secondary" />
                     </ui:VisualElement>
                 </ui:VisualElement>
-                <ui:VisualElement name="diagnostics-panel" class="advanced-group diagnostics-panel">
-                    <ui:VisualElement class="advanced-row">
+                <ui:VisualElement class="advanced-group">
+                    <ui:VisualElement class="section-heading-row">
                         <ui:Label text="Sanitized diagnostics" class="card-title" />
-                        <ui:Button name="copy-diagnostics" text="Copy diagnostics" class="button-secondary" />
+                        <ui:Button name="copy-diagnostics" text="Copy" class="button-secondary button-compact" />
                     </ui:VisualElement>
                     <ui:TextField name="diagnostics" label="Diagnostic log" multiline="true" is-read-only="true" class="diagnostics-field" />
                 </ui:VisualElement>

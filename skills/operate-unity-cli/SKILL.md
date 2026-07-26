@@ -65,28 +65,21 @@ unity command --project-path <project> save_scene --confirm true
 
 Never pass `name=value` in place of `--name value`.
 
-## Use the bundled MCP server
+## Use the advanced bundled MCP server
 
-Prefer `UniGame/Unity CLI MCP`: verify the environment, use each agent's
-**MCP** toggle to set the desired **On/Off** state, and keep stdio plus the
-project-local skill enabled. Found clients start enabled on first use. Inspect
-**Preview changes**, including pending enables, pending disables, and
-conflicts, then use **Apply preview** only after authorization. The guided
-screen installs the
-self-contained server, creates or removes the private global `unity_cli_mcp`
-registration, and installs this skill locally. Open Editors publish user-local
-leases; do not create one MCP registration per project.
+Use this server only when its advanced catalog compatibility or loopback HTTP
+broker is explicitly required. For ordinary stdio registration use the
+official `unity mcp --project-path <absolute-project>` backend and the
+`operate-unity-mcp` skill; that path has no Node requirement.
 
-Use **Advanced** only for optional loopback HTTP, managed removal, rollback, or
-sanitized diagnostics. A normal reviewed Apply repairs missing managed state;
-unknown same-name registrations remain user-owned unless the user explicitly
-authorizes the reviewed `force` replacement.
+Use **Advanced** for the optional loopback HTTP broker, managed removal,
+rollback, or sanitized diagnostics. Unknown registrations remain user-owned
+unless the user explicitly authorizes a reviewed replacement.
 
 For standalone use, launch `Server~/dist/index.js` with Node. Select an Editor
 per `unity_editor_*` call with `editor_instance_id`, `project_id`, or
-`project_path`, in that priority order. `projectPath` and
-`UNITY_PROJECT_PATH` are deprecated fallbacks. If several ready Editors match,
-stop and ask which instance to use; never choose the newest. The server exposes
+`project_path`, in that priority order. If several ready Editors match, stop
+and ask which instance to use; never choose the newest. The server exposes
 `unity_cli_*`, `unity_editor_*`, `unity_player_*`, and toolkit discovery tools.
 
 Treat `CONFIRMATION_REQUIRED` as a safety boundary. Ask for authorization and
@@ -133,9 +126,8 @@ batch logs can echo process arguments.
 - Read [setup-and-agents.md](references/setup-and-agents.md) when installing,
   recovering, removing, or troubleshooting an agent registration or HTTP
   lifecycle.
-- Read
-  [unity-cli-capabilities.md](../../Documentation~/unity-cli-capabilities.md)
-  for the complete versioned capability map and catalogs.
+- For the official built-in MCP workflow, install and use the separate
+  `operate-unity-mcp` skill, which carries its own versioned capability map.
 - Run [probe-environment.mjs](scripts/probe-environment.mjs) on an unfamiliar
   machine.
 - Run [audit-catalogs.mjs](scripts/audit-catalogs.mjs) after upgrading Unity

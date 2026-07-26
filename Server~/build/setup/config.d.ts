@@ -2,7 +2,7 @@ export declare const managedMarker = "unigame-unitycli-mcp";
 export declare function fingerprint(value: unknown): string;
 export declare function stripJsonComments(text: string): string;
 export declare function parseJsonc(text: string): Record<string, unknown>;
-export declare function patchServerJsonc(text: string, property: "mcpServers" | "servers", serverName: string, value: unknown | undefined): string;
+export declare function patchServerJsonc(text: string, property: "mcpServers" | "servers" | "cline.mcpServers", serverName: string, value: unknown | undefined): string;
 export declare function managedTomlBlock(name: string, value?: {
     command: string;
     args: string[];

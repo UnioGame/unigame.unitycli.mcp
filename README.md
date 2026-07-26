@@ -12,7 +12,7 @@ control Development Players from any MCP-capable agent.**
 [![Node](https://img.shields.io/badge/Node-%E2%89%A520-339933?style=flat-square&logo=node.js&logoColor=white)](Server~/package.json)
 [![License](https://img.shields.io/badge/License-MIT-2ea44f?style=flat-square)](LICENSE)
 
-**269 MCP tools · Unity CLI · quick setup**
+**Official Unity stdio MCP · project-pinned agent setup · optional advanced broker**
 
 </div>
 
@@ -30,8 +30,10 @@ control Development Players from any MCP-capable agent.**
 | Development Player | Inspect runtime state, change time/frame rate, simulate input, read logs, hot reload and quit | 14 |
 | Toolkit | Inspect catalogs/connections and search capabilities | 3 |
 
-The bundled [Agent Skill](skills/operate-unity-cli/SKILL.md) teaches an agent
-which mode to select and how to cross the boundaries safely. The full
+The recommended `operate-unity-mcp` skill teaches an agent to use Unity's
+built-in stdio MCP for the current project. The advanced
+[operate-unity-cli skill](skills/operate-unity-cli/SKILL.md) covers standalone
+CLI, batch mode, the optional UniGame broker, HTTP, and Development Players. The full
 [capability map](Documentation~/unity-cli-capabilities.md) distinguishes
 built-in commands from batch Editor code, Pipeline tools, and arbitrary C#.
 
@@ -56,103 +58,65 @@ Open the guided setup window:
 UniGame → Unity CLI MCP
 ```
 
-The guided screen checks the environment and switches MCP **On** for found
-agents on first use. Each agent row shows detection and integration state:
-**Found** or **Missing**, plus **On**, **Off**, **Pending On**,
-**Pending Off**, or **Conflict**. Keep stdio and the Agent Skill enabled,
-click **Preview changes**, inspect the exact managed changes, then click
-**Apply preview**. The toolkit
-installs the self-contained server in stable user-local storage and creates one
-global private registration named `unity_cli_mcp`. Every open Editor publishes
-a short-lived user-local lease, so several Unity projects work concurrently.
+The Control Center checks Unity CLI, Pipeline, and this Editor. Click
+**Connect** for an installed agent, inspect the compact preview, install the
+recommended `operate-unity-mcp` skill, and click **Test MCP**. The registration
+starts Unity's official server directly:
+
+```text
+<absolute-unity-cli> mcp --project-path <absolute-unity-project>
+```
+
+Each project receives a stable private registration named
+`unigame_unity_cli_<project>_<path_hash>`, so several projects can coexist
+without a shared registration or repository-local machine paths.
 
 > [!TIP]
-> The default setup is agent-managed stdio plus the project-local Agent Skill.
-> It requires no npm install and writes no machine paths to the repository.
+> The agent-launched MCP server is built into Unity CLI and does not require
+> Node.js, npm, TypeScript, the UniGame broker, or a persistent server process.
+> The Control Center currently uses Node 20+ for its managed registration,
+> backup, rollback, and skill-copy operations.
 
-### 2. Run standalone
+### 2. Connect an agent
 
 ```sh
-git clone https://github.com/UnioGame/unigame.unitycli.mcp.git
-node unigame.unitycli.mcp/Server~/dist/index.js
+unity mcp --project-path "<UNITY_PROJECT>"
 ```
 
-The committed self-contained bundle means consumers need only Node.js—npm and TypeScript are
-development dependencies. The server uses stdio. Set `UNITY_CLI_PATH` only
-when `unity` is not on `PATH`. `UNITY_PROJECT_PATH` is a deprecated one-release
-fallback; prefer an Editor selector on each call.
+The Control Center discovers clients from the installed Unity CLI and shows
+installed clients first. Codex, Cursor, VS Code / GitHub Copilot, Cline,
+Claude Code, and Claude Desktop have managed first-line adapters. Existing
+registrations and comments are preserved; every mutation has a preview,
+fingerprint, and backup.
 
-### 3. Connect an agent
+For a client without a managed adapter, use the official configurator:
 
-The Control Center has first-line adapters for Codex, Cursor, VS Code / GitHub
-Copilot, Cline, and Claude Code. Claude Desktop keeps DXT/export support.
-Registrations use:
+```sh
+unity mcp configure --list --format json
+unity mcp configure <client> --project-path "<UNITY_PROJECT>" --dry-run
+```
+
+### 3. Install the recommended Agent Skill
+
+Click **Install** on the `operate-unity-mcp` card. The canonical copy is
+installed in the nearest agent workspace:
 
 ```text
-unity_cli_mcp
+.agents/skills/operate-unity-mcp
 ```
 
-They are stored in private user configuration. Existing registrations and
-comments are preserved and every mutation has a backup. A normal reviewed
-Apply restores missing managed state; Remove and Rollback stay out of the
-primary flow under **Advanced**.
+If no Git/workspace owner exists, the Unity project is used. The installed
+skill includes a self-contained versioned CLI guide and capability map.
+Managed mirrors are created only where required by a supported client. Invoke
+`$operate-unity-mcp` from a supporting agent.
 
-For a client that is not yet supported, use the generic fallback:
+### 4. Verify and start working
 
-Generic JSON configuration:
-
-```json
-{
-  "mcpServers": {
-    "unity_cli_mcp": {
-      "command": "node",
-      "args": ["<PACKAGE_ROOT>/Server~/dist/index.js"]
-    }
-  }
-}
-```
-
-Codex `config.toml`:
-
-```toml
-[mcp_servers.unity_cli_mcp]
-command = "node"
-args = ["<PACKAGE_ROOT>/Server~/dist/index.js"]
-```
-
-VS Code `.vscode/mcp.json`:
-
-```json
-{
-  "servers": {
-    "unity_cli_mcp": {
-      "type": "stdio",
-      "command": "node",
-      "args": ["<PACKAGE_ROOT>/Server~/dist/index.js"]
-    }
-  }
-}
-```
-
-Claude Desktop, Cursor, Cline and other JSON-based clients use the generic
-`mcpServers` object.
-
-### 4. Install the Agent Skill
-
-Keep **Install the project-local operate-unity-cli Agent Skill** enabled before
-Apply. The
-canonical copy is installed at:
-
-```text
-.agents/skills/operate-unity-cli
-```
-
-Managed mirrors are created for Cline and Claude Code. Invoke
-`$operate-unity-cli` from a supporting agent.
-
-### 5. First verified check
-
-With the intended project open in Unity:
+Click **Test MCP** in the Control Center. It launches the official stdio
+server, performs `initialize` and `tools/list`, reports the tool count, and
+terminates the probe process. `Verified` means the server and Editor tools
+responded; `MCP configured` on an agent row means its managed registration is
+valid. Restart the agent when the row says **Restart required**.
 
 ```sh
 unity status --format json
@@ -167,34 +131,33 @@ unity_connection_status { "project_path": "<UNITY_PROJECT>" }
 unity_editor_editor_status { "project_id": "<PROJECT_ID>" }
 ```
 
-A ready response confirms the CLI executable, the versioned catalogs, the
-Pipeline descriptor and the Editor connection.
+A ready response confirms the CLI executable, Pipeline descriptor, and Editor
+connection.
 
 ## Architecture
 
 ```mermaid
 flowchart LR
-    Agent["MCP-capable agent"] -->|one global stdio registration| Server["Shared UniGame MCP broker<br/>Node.js"]
-    Skill["operate-unity-cli skill"] -. workflow guidance .-> Agent
-    Registry["User-local Editor leases<br/>heartbeat 2s · expiry 10s"] --> Server
-    Editor -->|atomic metadata only| Registry
-    Server -->|spawn, no shell| CLI["Unity CLI"]
+    Agent["MCP-capable agent"] -->|project-pinned stdio| CLI["Official Unity CLI MCP"]
+    Skill["operate-unity-mcp skill"] -. workflow guidance .-> Agent
     CLI --> Standalone["Standalone services<br/>Editors · projects · auth · CI"]
     CLI -->|batch process| Batch["Unity Editor batch mode<br/>run · test · build"]
     CLI -->|localhost + descriptor token| Editor["Running Unity Editor<br/>Pipeline package"]
     CLI -->|localhost + descriptor token| Player["Development Player<br/>RuntimePipelineManager"]
-    Setup["Guided Unity setup<br/>Probe · Preview · Apply"] --> Agent
-    Setup --> Install["Stable user-local bundle"]
-    Install --> Server
+    Setup["Unity Control Center<br/>Connect · Skill · Test"] --> Agent
+    Agent -. advanced opt-in .-> Broker["UniGame broker<br/>Node.js · stdio/HTTP"]
+    Registry["User-local Editor registry"] --> Broker
+    Editor -->|strict snake_case metadata| Registry
+    Broker --> CLI
 ```
 
-There is one MCP implementation. Installing the repository as a UPM package
-adds the Control Center; cloning it separately runs the same committed
-self-contained JavaScript bundle.
+Unity CLI owns the default MCP implementation. This package supplies the
+Control Center, safe project-pinned client registration, skills, versioned
+knowledge, and an optional multi-project UniGame broker.
 
 ## Supported agents
 
-| Client | stdio | HTTP | Skill | Configuration |
+| Client | Official stdio | Advanced HTTP | Skill | Configuration |
 | --- | :---: | :---: | :---: | --- |
 | Codex | ✓ | ✓ | Project-local | Developer-local TOML |
 | Cursor | ✓ | ✓ | Project-local | Private MCP JSON |
@@ -227,7 +190,6 @@ Shared inputs:
 | `editor_instance_id` | Select one exact Editor session (highest priority) |
 | `project_id` | Select the sole ready Editor for a stable project ID |
 | `project_path` | Select by normalized absolute project path |
-| `projectPath` | Deprecated alias for `project_path` |
 | `runtimePath` | Select a Development Player descriptor directory |
 | `timeoutMs` | Bound the upstream process |
 | `confirm` | Acknowledge a high-risk operation |
@@ -241,53 +203,43 @@ All calls return a stable envelope with `ok`, `source`, `command`, `target`,
 
 `UniGame → Unity CLI MCP` is a UI Toolkit Control Center:
 
-1. **Environment** shows the three user-facing prerequisites and prominent
-   Install actions when Unity CLI or Pipeline is missing.
-2. **MCP Server** is a primary control with a green readiness lamp, explicit
-   stdio/HTTP state, endpoint, connected-project count, and a large
-   **Start HTTP server** or **Stop HTTP server** action. Starting HTTP selects
-   that transport automatically; there is no prerequisite transport checkbox.
-3. **This Editor** shows only the current project, Editor-tool readiness, and
-   Pipeline state. Technical IDs and heartbeat data stay in diagnostics.
-4. **Active Editors** lists the Unity projects currently available to agents.
-   Stale, duplicate, or corrupt registrations appear only as actionable
-   warnings.
-5. **Agent Integration** gives every client an MCP toggle and conflict state
-   while maintaining one shared `unity_cli_mcp` entry.
-6. **Skill** manages the project-local Agent Skill and mirrors.
-7. **Managed configuration** runs a read-only **Preview changes** operation.
-   Exact create/update/remove targets, warnings, conflicts, and restart
-   requirements appear inline before **Apply preview** is enabled.
+1. **Project readiness** gives compact Unity CLI, Pipeline, and Editor states.
+2. **Official stdio MCP** has one prominent green readiness lamp and
+   **Test MCP**. There is no misleading Start button: an agent starts stdio
+   automatically.
+3. **Agents** lists detected clients first. Each row has one status and one
+   primary action: Connect, Repair, or Disconnect.
+4. **Agent Skills** independently manages the recommended
+   `operate-unity-mcp` and advanced `operate-unity-cli` skills.
+5. **Advanced** contains the optional Node broker, HTTP lifecycle, dynamic
+   Editor registry, legacy registration, rollback, and sanitized diagnostics.
 
-Apply preview creates an atomic backup and also restores missing managed state.
-Unknown same-name registrations remain user-owned unless the reviewed Apply
-explicitly uses `force`.
-Success lists clients that need a restart; failures automatically expose
-sanitized diagnostics.
-
-The collapsed **Diagnostics and recovery** section contains managed removal,
-rollback, and sanitized diagnostics. HTTP lifecycle controls remain visible in
-the primary server card. Opening the window, refreshing status, or previewing
-a plan never mutates files or starts processes.
+Every mutation opens a compact preview for that action and creates an atomic
+backup after confirmation. Unknown same-name registrations and modified skill
+copies remain user-owned unless a reviewed force repair is explicitly
+confirmed. Opening the window, refreshing, testing prerequisites, or
+cancelling a preview never changes configuration.
 
 Pipeline `0.4.0-exp.1` and the native Unity CLI each show a compact
 **Install** action only when missing. Both require confirmation. Pipeline uses
 Unity Package Manager; the CLI uses Unity's official installer for the current
 platform with the beta channel. A failed CLI install exposes **Copy Command**
-and **Docs** while keeping sanitized output under **Advanced**. Node remains
-documentation-only. The toolkit never changes `PATH`, returns a license, or
-edits Cloud/VCS state.
+and **Docs** while keeping sanitized output under **Advanced**. Node is used
+by the managed setup backend and optional broker, never by the official MCP
+process launched by an agent. The toolkit never changes `PATH`, returns a
+license, or edits Cloud/VCS state.
 
 ## stdio and HTTP lifecycle
 
-stdio is the default: the agent owns one global broker process.
-Optional HTTP binds only to `127.0.0.1`, validates Host and Origin, and accepts
-a capability stored in a protected local file. Each Editor owns an independent
-lease; closing one cannot stop sessions owned by another Editor.
+Official stdio is the default. Each managed agent registration starts
+`unity mcp --project-path <project>` on demand and owns that child process.
+No permanent process, Node runtime, port, token, or shared lease is involved.
 
-The primary MCP Server control prevents duplicate startup and reports
-sanitized failures. HTTP stops ten seconds after the last live lease unless
-keep-alive is enabled.
+The optional UniGame broker remains available under **Advanced**. Its HTTP
+transport binds only to `127.0.0.1`, validates Host and Origin, and accepts a
+capability stored in a protected local file. Each Editor owns an independent
+lease; closing one cannot stop sessions owned by another Editor. HTTP stops
+ten seconds after the last live lease unless keep-alive is explicitly enabled.
 
 For an automatically assigned HTTP port, start the broker first, refresh until
 the actual endpoint is visible, then preview and apply agent registrations. A
@@ -390,6 +342,8 @@ Validate the skill:
 
 ```sh
 python <skill-creator>/scripts/quick_validate.py \
+  skills/operate-unity-mcp
+python <skill-creator>/scripts/quick_validate.py \
   skills/operate-unity-cli
 ```
 
@@ -423,11 +377,14 @@ npm run test:e2e -- \
 - Client config formats can evolve. Adapters preserve unmanaged same-name
   registrations by default; replacement requires a reviewed Apply with explicit
   `force`, and a rollback backup is created first.
-- Node 20+ is required; the Control Center diagnoses it but does not install it.
+- Node 20+ is required by Control Center configuration management and the
+  optional broker/HTTP transport. The official Unity stdio MCP process itself
+  does not require Node.
 
 ## Documentation
 
 - [Complete capability map](Documentation~/unity-cli-capabilities.md)
+- [Recommended official MCP workflow](skills/operate-unity-mcp/SKILL.md)
 - [Agent workflow](skills/operate-unity-cli/SKILL.md)
 - [Recipes](skills/operate-unity-cli/references/recipes.md)
 - [MCP contract](skills/operate-unity-cli/references/mcp-tools.md)

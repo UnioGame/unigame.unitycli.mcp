@@ -143,10 +143,11 @@ namespace UniGame.UnityCli.Editor
                 if (setupRequest != null &&
                     string.Equals(setupRequest.operation, "serve", StringComparison.Ordinal))
                 {
-                    if (string.IsNullOrEmpty(setupRequest.editorInstanceId))
-                        setupRequest.editorInstanceId = UnityCliEditorRegistry.EditorInstanceId();
-                    if (string.IsNullOrEmpty(setupRequest.ownerStartedAtUtc))
-                        setupRequest.ownerStartedAtUtc =
+                    if (string.IsNullOrEmpty(setupRequest.editor_instance_id))
+                        setupRequest.editor_instance_id =
+                            UnityCliEditorRegistry.EditorInstanceId();
+                    if (string.IsNullOrEmpty(setupRequest.owner_started_at_utc))
+                        setupRequest.owner_started_at_utc =
                             UnityCliEditorRegistry.EditorStartedAtUtc();
                     request = JsonUtility.ToJson(setupRequest);
                 }
@@ -257,13 +258,13 @@ namespace UniGame.UnityCli.Editor
             if (string.IsNullOrEmpty(node) || string.IsNullOrEmpty(setup))
                 return;
             var request =
-                "{\"operation\":\"serve\",\"projectPath\":\"" +
+                "{\"operation\":\"serve\",\"project_path\":\"" +
                 Escape(UnityCliSetupBridge.ProjectPath()) +
-                "\",\"packageRoot\":\"" +
+                "\",\"package_root\":\"" +
                 Escape(package.resolvedPath) +
-                "\",\"confirm\":true,\"ownerPid\":" +
+                "\",\"confirm\":true,\"owner_pid\":" +
                 Process.GetCurrentProcess().Id +
-                ",\"editorInstanceId\":\"" +
+                ",\"editor_instance_id\":\"" +
                 Escape(UnityCliEditorRegistry.EditorInstanceId()) +
                 "\",\"stop\":true}";
             UnityCliSetupBridge.Execute(node, setup, request);

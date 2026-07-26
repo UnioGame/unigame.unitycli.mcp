@@ -25,7 +25,6 @@ For example, `projects link vcs` becomes `unity_cli_projects_link_vcs`.
 - `editor_instance_id`: exact Editor session UUID; highest-priority selector.
 - `project_id`: stable project hash; valid only when one ready instance matches.
 - `project_path`: normalized absolute Editor project path.
-- `projectPath`: deprecated alias for `project_path`.
 - `runtimePath`: directory containing `.unity-pipeline-runtime-port`.
 - `timeoutMs`: process/command timeout.
 - `confirm`: explicit acknowledgement for high-risk operations.

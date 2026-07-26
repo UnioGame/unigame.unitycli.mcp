@@ -1,13 +1,14 @@
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
 import { homedir } from "node:os";
+import { dirname, join, resolve } from "node:path";
 export const toolkitVersion = "0.1.0";
 export function findProjectRoot(projectPath) {
     const unityProject = resolve(projectPath);
     let current = unityProject;
     while (true) {
-        if (existsSync(join(current, ".git")))
+        if (existsSync(join(current, ".git")) ||
+            existsSync(join(current, ".agents")))
             return current;
         const parent = dirname(current);
         if (parent === current)
@@ -16,37 +17,38 @@ export function findProjectRoot(projectPath) {
     }
 }
 export function projectServerName(projectPath) {
-    const normalized = resolve(projectPath).replaceAll("\\", "/").toLowerCase();
-    const slug = resolve(projectPath)
+    const absolute = resolve(projectPath);
+    const normalized = absolute.replaceAll("\\", "/").toLowerCase();
+    const slug = absolute
         .split(/[\\/]/)
         .filter(Boolean)
         .at(-1)
-        ?.replace(/[^a-zA-Z0-9]+/g, "_")
+        ?.toLowerCase()
+        .replace(/[^a-z0-9]+/g, "_")
         .replace(/^_+|_+$/g, "")
-        .slice(0, 32) || "UnityProject";
+        .slice(0, 40) || "unity_project";
     const hash = createHash("sha256").update(normalized).digest("hex").slice(0, 8);
-    return `unigameUnityCli_${slug}_${hash}`;
+    return `unigame_unity_cli_${slug}_${hash}`;
 }
 export function createContext(request) {
-    if (!request.projectPath)
-        throw new Error("projectPath is required");
-    if (!request.packageRoot)
-        throw new Error("packageRoot is required");
-    const projectPath = resolve(request.projectPath);
-    const homePath = resolve(request.homePath ?? homedir());
-    const dataPath = resolve(request.dataPath ??
+    if (!request.project_path)
+        throw new Error("project_path is required");
+    if (!request.package_root)
+        throw new Error("package_root is required");
+    const project_path = resolve(request.project_path);
+    const home_path = resolve(request.home_path ?? homedir());
+    const data_path = resolve(request.data_path ??
         (process.platform === "win32"
-            ? join(process.env.LOCALAPPDATA ?? homePath, "UniGame")
-            : join(homePath, ".local", "share", "unigame")));
+            ? join(process.env.LOCALAPPDATA ?? home_path, "UniGame")
+            : join(home_path, ".local", "share", "unigame")));
     return {
-        projectPath,
-        projectRoot: findProjectRoot(projectPath),
-        packageRoot: resolve(request.packageRoot),
-        homePath,
-        dataPath,
-        installRoot: join(dataPath, "unity-cli-mcp"),
-        serverName: "unity_cli_mcp",
-        legacyServerName: projectServerName(projectPath),
+        project_path,
+        project_root: findProjectRoot(project_path),
+        package_root: resolve(request.package_root),
+        home_path,
+        data_path,
+        install_root: join(data_path, "unity-cli-mcp"),
+        registration_name: projectServerName(project_path),
     };
 }
 //# sourceMappingURL=project.js.map

@@ -712,3 +712,173 @@
 .is-busy .button-danger {
     opacity: 0.65;
 }
+.compact-section {
+    padding-bottom: 14px;
+}
+
+.readiness-row {
+    flex-direction: row;
+    flex-wrap: wrap;
+    margin-top: 8px;
+}
+
+.readiness-card {
+    min-width: 220px;
+    flex-grow: 1;
+    flex-direction: row;
+    align-items: center;
+    margin: 4px;
+    padding: 10px;
+    border-width: 1px;
+    border-radius: 6px;
+    border-color: rgba(128, 128, 128, 0.35);
+    background-color: rgba(80, 80, 80, 0.12);
+}
+
+.readiness-copy {
+    flex-grow: 1;
+    margin-left: 8px;
+}
+
+.status-lamp {
+    width: 10px;
+    height: 10px;
+    min-width: 10px;
+    border-radius: 5px;
+    background-color: rgb(125, 125, 125);
+}
+
+.status-lamp-large {
+    width: 16px;
+    height: 16px;
+    min-width: 16px;
+    border-radius: 8px;
+    margin-right: 10px;
+}
+
+.lamp-ready {
+    background-color: rgb(54, 184, 96);
+}
+
+.lamp-warning {
+    background-color: rgb(223, 166, 47);
+}
+
+.lamp-error {
+    background-color: rgb(211, 76, 76);
+}
+
+.official-mcp-card {
+    border-left-width: 4px;
+    border-left-color: rgb(74, 136, 229);
+}
+
+.mcp-card-header {
+    flex-direction: row;
+    align-items: center;
+}
+
+.mcp-card-copy {
+    flex-grow: 1;
+}
+
+.mcp-result {
+    margin-top: 10px;
+    margin-bottom: 10px;
+    white-space: normal;
+}
+
+.button-large {
+    min-height: 40px;
+    font-size: 14px;
+    -unity-font-style: bold;
+}
+
+.button-compact {
+    min-height: 25px;
+    padding-left: 10px;
+    padding-right: 10px;
+}
+
+.disabled-reason {
+    color: rgb(213, 157, 65);
+    font-size: 11px;
+    white-space: normal;
+    margin-top: 3px;
+}
+
+.cards-list {
+    margin-top: 8px;
+}
+
+#agents-container {
+    margin-top: 5px;
+}
+
+#agents-container .integration-card {
+    min-height: 38px;
+    margin-bottom: 3px;
+    padding: 5px 9px;
+}
+
+#agents-container .card-detail {
+    min-height: 0;
+    margin-top: 1px;
+}
+
+.integration-card {
+    flex-direction: row;
+    align-items: center;
+    min-height: 50px;
+    margin-bottom: 6px;
+    padding: 9px;
+    border-width: 1px;
+    border-radius: 5px;
+    border-color: rgba(128, 128, 128, 0.35);
+}
+
+.integration-copy {
+    flex-grow: 1;
+}
+
+.integration-state {
+    margin-right: 10px;
+}
+
+.skill-grid {
+    flex-direction: row;
+    flex-wrap: wrap;
+    margin-top: 8px;
+}
+
+.skill-card {
+    min-width: 240px;
+    flex-grow: 1;
+    margin: 4px;
+    padding: 10px;
+    border-width: 1px;
+    border-radius: 6px;
+    border-color: rgba(128, 128, 128, 0.35);
+}
+
+.skill-actions {
+    flex-direction: row;
+    flex-wrap: wrap;
+    margin-top: 8px;
+}
+
+.skill-actions > .unity-button {
+    min-width: 92px;
+    margin-right: 6px;
+    margin-bottom: 4px;
+}
+
+.status-verified {
+    color: rgb(87, 210, 120);
+    background-color: rgba(54, 184, 96, 0.18);
+}
+
+.status-testing {
+    color: rgb(106, 166, 255);
+    background-color: rgba(74, 136, 229, 0.18);
+}

@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -13,46 +15,6 @@ namespace UniGame.UnityCli.Editor.Tests
     public sealed class UnityCliSetupBridgeTests
     {
         [Test]
-        public void FindProjectRoot_ReturnsNearestGitOwner()
-        {
-            var root = Path.Combine(Path.GetTempPath(), "unigame-unitycli-root-test");
-            var project = Path.Combine(root, "nested", "UnityProject");
-            Directory.CreateDirectory(Path.Combine(root, ".git"));
-            Directory.CreateDirectory(project);
-            try
-            {
-                Assert.AreEqual(
-                    Path.GetFullPath(root),
-                    UnityCliSetupBridge.FindProjectRoot(project));
-            }
-            finally
-            {
-                Directory.Delete(root, true);
-            }
-        }
-
-        [Test]
-        public void ConfirmationMessage_DescribesProtectedOperation()
-        {
-            StringAssert.Contains(
-                "backup",
-                UnityCliSetupBridge.ConfirmationMessage("remove", false).ToLowerInvariant());
-            StringAssert.Contains(
-                "stop",
-                UnityCliSetupBridge.ConfirmationMessage("serve", true).ToLowerInvariant());
-        }
-
-        [Test]
-        public void Execute_ReturnsStructuredFailureForMissingRuntime()
-        {
-            var result = UnityCliSetupBridge.Execute(
-                Path.Combine(Path.GetTempPath(), "missing-node"),
-                Path.Combine(Path.GetTempPath(), "missing-setup"),
-                "{}");
-            StringAssert.Contains("\"ok\":false", result);
-        }
-
-        [Test]
         public void ToolkitAssets_LoadFromPackagePath()
         {
             Assert.NotNull(
@@ -64,304 +26,225 @@ namespace UniGame.UnityCli.Editor.Tests
         }
 
         [Test]
-        public void Layout_PrioritizesServerAndKeepsTechnicalIdentityOutOfPrimaryFlow()
+        public void Layout_PrioritizesOfficialStdioAndKeepsBrokerAdvanced()
         {
             var tree = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(
                 UnityCliSetupWindow.WindowUxmlPath);
             var root = tree.Instantiate();
 
-            Assert.NotNull(root.Q<VisualElement>("server-section"));
-            Assert.NotNull(root.Q<VisualElement>("server-lamp"));
-            Assert.NotNull(root.Q<Label>("server-primary-title"));
-            Assert.NotNull(root.Q<Label>("server-transport-value"));
-            Assert.NotNull(root.Q<Label>("this-project-name"));
-            Assert.NotNull(root.Q<Label>("this-connection-state"));
-            Assert.NotNull(root.Q<Label>("this-pipeline"));
-            Assert.IsNull(root.Q<Label>("this-project-id"));
-            Assert.IsNull(root.Q<Label>("this-editor-instance-id"));
-            Assert.IsNull(root.Q<Label>("this-heartbeat"));
-            Assert.IsNull(root.Q<Toggle>("http-transport"));
-            Assert.NotNull(root.Q<VisualElement>("active-editors-container"));
-            Assert.NotNull(root.Q<Label>("active-editors-count"));
-            Assert.NotNull(root.Q<Label>("global-server-name"));
-            Assert.AreEqual("unity_cli_mcp", root.Q<Label>("global-server-name").text);
-            Assert.NotNull(root.Q<Label>("broker-port"));
-            Assert.NotNull(root.Q<Label>("broker-lease-count"));
-            Assert.NotNull(root.Q<Button>("review-configuration"));
-            Assert.NotNull(root.Q<Button>("repair-configuration"));
-            Assert.NotNull(root.Q<VisualElement>("preview-panel"));
-            Assert.NotNull(root.Q<Button>("apply-configuration"));
-            Assert.NotNull(root.Q<Foldout>("advanced-foldout"));
-            Assert.NotNull(root.Q<Button>("remove-configuration"));
-            Assert.AreEqual("Refresh status", root.Q<Button>("refresh-status").text);
-            Assert.AreEqual("Preview changes", root.Q<Button>("review-configuration").text);
-            Assert.AreEqual("Preview repair", root.Q<Button>("repair-configuration").text);
-            Assert.AreEqual("Apply preview", root.Q<Button>("apply-configuration").text);
-            Assert.AreEqual("Install", root.Q<Button>("install-cli").text);
-            Assert.AreEqual("Install", root.Q<Button>("install-pipeline").text);
-            Assert.AreEqual("Documentation", root.Q<Button>("open-cli-docs").text);
-            Assert.AreEqual("Documentation", root.Q<Button>("open-node-docs").text);
-            Assert.AreEqual("Copy command", root.Q<Button>("copy-cli-command").text);
-            Assert.AreEqual("Start HTTP server", root.Q<Button>("http-action").text);
-            Assert.IsTrue(root.Q<Button>("install-cli").ClassListContains("button-install"));
-            Assert.IsTrue(root.Q<Button>("install-pipeline").ClassListContains("button-install"));
-            Assert.AreEqual(
-                "Remove managed data",
-                root.Q<Button>("remove-configuration").text);
-            Assert.AreEqual(
-                "Rollback latest backup",
-                root.Q<Button>("rollback-configuration").text);
-            Assert.AreEqual(
-                "Copy diagnostics",
-                root.Q<Button>("copy-diagnostics").text);
+            Assert.NotNull(root.Q<VisualElement>("cli-card"));
+            Assert.NotNull(root.Q<VisualElement>("pipeline-card"));
+            Assert.NotNull(root.Q<VisualElement>("editor-card"));
+            Assert.NotNull(root.Q<VisualElement>("official-mcp-card"));
+            Assert.AreEqual("Test MCP", root.Q<Button>("test-official-mcp").text);
+            Assert.NotNull(root.Q<Label>("test-official-mcp-reason"));
+            Assert.NotNull(root.Q<VisualElement>("agents-container"));
+            Assert.AreEqual("Show all", root.Q<Button>("show-all-agents").text);
+            Assert.NotNull(root.Q<VisualElement>("skills-container"));
+            Assert.IsNull(root.Q<VisualElement>("preview-panel"));
+            Assert.IsNull(root.Q<Button>("review-configuration"));
+            Assert.IsNull(root.Q<Button>("apply-configuration"));
+
+            var advanced = root.Q<Foldout>("advanced-foldout");
+            Assert.NotNull(advanced);
+            Assert.AreEqual("Advanced", advanced.text);
+            Assert.NotNull(advanced.Q<Button>("http-action"));
+            Assert.NotNull(advanced.Q<IntegerField>("http-port"));
+            Assert.NotNull(advanced.Q<Button>("remove-configuration"));
+            Assert.NotNull(advanced.Q<TextField>("diagnostics"));
         }
 
         [Test]
-        public void Layout_UsesAccessibleLabelsForServerAndAdvancedInputs()
+        public void Layout_OfficialStdioHasNoStartServerAction()
         {
             var tree = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(
                 UnityCliSetupWindow.WindowUxmlPath);
             var root = tree.Instantiate();
+            var official = root.Q<VisualElement>("official-mcp-card");
 
-            Assert.AreEqual(
-                "Preferred port (0 = automatic)",
-                root.Q<UnityEngine.UIElements.IntegerField>("http-port").label);
-            Assert.AreEqual("Diagnostic log", root.Q<TextField>("diagnostics").label);
-            Assert.IsNotEmpty(root.Q<Button>("refresh-status").tooltip);
-            Assert.IsNotEmpty(root.Q<Button>("review-configuration").tooltip);
-        }
-
-        [TestCase(false, "plan", "apply")]
-        [TestCase(true, "repair", "repair")]
-        public void Window_ChoosesOperationForSelectedPreviewMode(
-            bool repairRequested,
-            string expectedPreview,
-            string expectedApply)
-        {
-            Assert.AreEqual(
-                expectedPreview,
-                UnityCliSetupWindow.PreviewOperation(repairRequested));
-            Assert.AreEqual(
-                expectedApply,
-                UnityCliSetupWindow.ApplyOperation(repairRequested));
-            Assert.IsTrue(
-                UnityCliSetupWindow.IsPreviewOperation(expectedPreview, false));
+            Assert.IsNull(official.Q<Button>("http-action"));
             Assert.IsFalse(
-                UnityCliSetupWindow.IsPreviewOperation(expectedApply, true));
+                official.Query<Button>().ToList().Any(
+                    button => button.text.IndexOf(
+                        "Start server",
+                        StringComparison.OrdinalIgnoreCase) >= 0));
+            StringAssert.Contains(
+                "agent starts",
+                official.Q<Label>(className: "section-description").text.ToLowerInvariant());
         }
 
         [Test]
-        public void Presenter_FirstUseSelectsOnlyDetectedAgents()
+        public void SetupRequest_WireJsonUsesStrictSnakeCase()
         {
-            var presenter = new UnityCliSetupPresenter();
-            presenter.InitializeAgents(
-                new[]
-                {
-                    new UnityCliAgentStatus { id = "codex", installed = true },
-                    new UnityCliAgentStatus { id = "cursor", installed = false },
-                    new UnityCliAgentStatus { id = "cline", installed = true },
-                },
-                false,
-                null);
-
-            CollectionAssert.AreEquivalent(
-                new[] { "codex", "cline" },
-                presenter.SelectedAgents);
-        }
-
-        [Test]
-        public void Presenter_SavedSelectionWinsAfterDomainReload()
-        {
-            var presenter = new UnityCliSetupPresenter();
-            presenter.InitializeAgents(
-                new[]
-                {
-                    new UnityCliAgentStatus { id = "codex", installed = true },
-                    new UnityCliAgentStatus { id = "cursor", installed = true },
-                },
-                true,
-                new[] { "cursor" });
-
-            CollectionAssert.AreEquivalent(new[] { "cursor" }, presenter.SelectedAgents);
-        }
-
-        [Test]
-        public void Presenter_MissingUnconfiguredAgentCannotBeEnabled()
-        {
-            var presenter = new UnityCliSetupPresenter();
-            presenter.InitializeAgents(
-                new[]
-                {
-                    new UnityCliAgentStatus
-                    {
-                        id = "cursor",
-                        installed = false,
-                        configured = false,
-                    },
-                },
-                true,
-                new[] { "cursor" });
-            presenter.UpdateAgentStatuses(new[]
+            var request = new UnityCliSetupRequest
             {
-                new UnityCliAgentStatus
-                {
-                    id = "cursor",
-                    installed = false,
-                    configured = false,
-                },
-            });
-
-            Assert.IsFalse(presenter.CanToggleAgent("cursor"));
-            Assert.IsFalse(presenter.IsAgentSelected("cursor"));
-            Assert.AreEqual("Missing", presenter.AgentDetection("cursor"));
-            Assert.AreEqual("Off", presenter.AgentIntegration("cursor"));
-        }
-
-        [Test]
-        public void Presenter_ConfiguredMissingAgentCanBeDisabled()
-        {
-            var presenter = new UnityCliSetupPresenter();
-            presenter.InitializeAgents(
-                new[]
-                {
-                    new UnityCliAgentStatus
-                    {
-                        id = "codex",
-                        installed = false,
-                        configured = true,
-                    },
-                },
-                true,
-                new[] { "codex" });
-
-            Assert.IsTrue(presenter.CanToggleAgent("codex"));
-            presenter.SetAgentSelected("codex", false);
-            CollectionAssert.Contains(presenter.DisabledAgents, "codex");
-            Assert.AreEqual("Pending Off", presenter.AgentIntegration("codex"));
-            Assert.IsTrue(presenter.CanReview("node", "v20.11.0", "unity", "setup"));
-        }
-
-        [Test]
-        public void Presenter_UsesCompactIntegrationStates()
-        {
-            var presenter = new UnityCliSetupPresenter();
-            presenter.InitializeAgents(
-                new[]
-                {
-                    new UnityCliAgentStatus { id = "codex", installed = true },
-                    new UnityCliAgentStatus
-                    {
-                        id = "cursor",
-                        installed = true,
-                        configured = true,
-                    },
-                    new UnityCliAgentStatus
-                    {
-                        id = "cline",
-                        installed = true,
-                        conflict = true,
-                    },
-                },
-                true,
-                new[] { "codex", "cursor", "cline" });
-
-            Assert.AreEqual("Pending On", presenter.AgentIntegration("codex"));
-            Assert.AreEqual("On", presenter.AgentIntegration("cursor"));
-            Assert.AreEqual("Conflict", presenter.AgentIntegration("cline"));
-            presenter.SetAgentSelected("cursor", false);
-            Assert.AreEqual("Pending Off", presenter.AgentIntegration("cursor"));
-            Assert.AreEqual("Off", presenter.AgentToggleValue("cursor"));
-        }
-
-        [TestCase("", "v20.0.0", "unity", "setup")]
-        [TestCase("node", "v18.20.0", "unity", "setup")]
-        [TestCase("node", "v20.0.0", "", "setup")]
-        public void Presenter_MissingPrerequisiteBlocksReview(
-            string node,
-            string nodeVersion,
-            string cli,
-            string setup)
-        {
-            var presenter = ReadyPresenter();
-            Assert.IsFalse(presenter.CanReview(node, nodeVersion, cli, setup));
-        }
-
-        [Test]
-        public void Presenter_PipelineDoesNotGateStandaloneReview()
-        {
-            var presenter = ReadyPresenter();
-            Assert.IsTrue(presenter.CanReview("node", "v20.11.0", "unity", "setup"));
-        }
-
-        [Test]
-        public void Presenter_PreviewEnablesApplyAndShowsForceOnlyForConflict()
-        {
-            var presenter = ReadyPresenter();
-            presenter.AcceptResponse(new UnityCliSetupResponse
-            {
-                ok = true,
                 operation = "plan",
-                changes = new[]
-                {
-                    new UnityCliPlannedChange { kind = "update", conflict = true },
-                },
-            });
+                project_path = "/project",
+                package_root = "/package",
+                agent_ids = new[] { "codex" },
+                disabled_agent_ids = new[] { "cursor" },
+                skill_ids = new[] { "operate-unity-cli" },
+                disabled_skill_ids = new[] { "legacy" },
+                target_kind = "agent",
+                target_id = "codex",
+                install_server = true,
+                owner_pid = 42,
+                editor_instance_id = "editor",
+                owner_started_at_utc = "2026-01-01T00:00:00Z",
+                keep_alive = true,
+                backup_id = "backup",
+            };
 
-            Assert.IsTrue(presenter.PreviewReady);
-            Assert.IsTrue(presenter.ForceVisible);
-            Assert.IsTrue(presenter.CanApply("node", "v20.11.0", "unity", "setup"));
+            var json = JsonUtility.ToJson(request);
+
+            StringAssert.Contains("\"project_path\"", json);
+            StringAssert.Contains("\"agent_ids\"", json);
+            StringAssert.Contains("\"disabled_agent_ids\"", json);
+            StringAssert.Contains("\"skill_ids\"", json);
+            StringAssert.Contains("\"target_kind\"", json);
+            StringAssert.Contains("\"editor_instance_id\"", json);
+            StringAssert.Contains("\"owner_started_at_utc\"", json);
+            StringAssert.DoesNotContain("projectPath", json);
+            StringAssert.DoesNotContain("restartRequired", json);
+            StringAssert.DoesNotContain("editorInstanceId", json);
         }
 
         [Test]
-        public void Presenter_BusyStateBlocksRepeatedOperations()
-        {
-            var presenter = ReadyPresenter();
-            presenter.SetBusy(true);
-            Assert.IsFalse(presenter.CanReview("node", "v20.11.0", "unity", "setup"));
-        }
-
-        [Test]
-        public void TypedResponse_ParsesRestartAndHttpState()
+        public void SetupResponse_ParsesCanonicalStatusShape()
         {
             const string json =
-                "{\"ok\":true,\"operation\":\"probe\",\"changes\":[],\"warnings\":[]," +
-                "\"errors\":[],\"restartRequired\":[\"Codex\"],\"data\":{\"serverInstalled\":true," +
-                "\"http\":{\"pid\":42,\"port\":7788,\"alive\":true}}}";
+                "{\"ok\":true,\"operation\":\"probe\",\"restart_required\":[\"Codex\"]," +
+                "\"data\":{\"unity_cli\":{\"ready\":true},\"current_editor\":{" +
+                "\"project_path\":\"/project\",\"project_id\":\"project-id\"," +
+                "\"editor_instance_id\":\"editor-id\",\"ready\":true,\"tool_count\":9}," +
+                "\"official_mcp\":{\"state\":\"ready\",\"tool_count\":9}," +
+                "\"agents\":[{\"agent_id\":\"codex\",\"display_name\":\"Codex\"," +
+                "\"detected\":true,\"registration_state\":\"registered\"," +
+                "\"managed\":true,\"restart_required\":false}]," +
+                "\"skills\":[{\"skill_id\":\"operate-unity-cli\"," +
+                "\"display_name\":\"Operate Unity CLI\",\"state\":\"installed\"," +
+                "\"install_path\":\"/skill\"}],\"advanced_broker\":{\"running\":false}}}";
+
             var response = UnityCliSetupResponse.Parse(json);
 
             Assert.IsTrue(response.ok);
-            Assert.AreEqual("Codex", response.restartRequired.Single());
-            Assert.IsTrue(response.data.serverInstalled);
-            Assert.IsTrue(response.data.http.alive);
-            Assert.AreEqual(7788, response.data.http.port);
-        }
-
-        [TestCase(RuntimePlatform.WindowsEditor, "Windows", ".ps1", "powershell.exe")]
-        [TestCase(RuntimePlatform.OSXEditor, "macOS", ".sh", "/bin/bash")]
-        [TestCase(RuntimePlatform.LinuxEditor, "Linux", ".sh", "/bin/bash")]
-        public void Installer_SelectsPlatformCommand(
-            RuntimePlatform platform,
-            string expectedPlatform,
-            string expectedExtension,
-            string expectedExecutable)
-        {
-            var spec = UnityCliPlatformInstaller.ForPlatform(platform);
-            Assert.AreEqual(expectedPlatform, spec.Platform);
-            Assert.AreEqual(expectedExtension, spec.Extension);
-            Assert.AreEqual(expectedExecutable, spec.Executable);
-            StringAssert.Contains("UNITY_CLI_CHANNEL", spec.Command);
-            StringAssert.StartsWith("https://public-cdn.cloud.unity3d.com/", spec.Url);
+            Assert.AreEqual("Codex", response.restart_required.Single());
+            Assert.IsTrue(response.data.unity_cli.ready);
+            Assert.AreEqual("/project", response.data.current_editor.project_path);
+            Assert.AreEqual("editor-id", response.data.current_editor.editor_instance_id);
+            Assert.AreEqual("ready", response.data.official_mcp.state);
+            Assert.AreEqual("codex", response.data.agents.Single().agent_id);
+            Assert.AreEqual("operate-unity-cli", response.data.skills.Single().skill_id);
         }
 
         [Test]
-        public void Installer_StartInfoUsesNoShellAndBetaChannel()
+        public async Task OfficialProbe_UsesCanonicalArgumentsAndJsonRpcSequence()
         {
-            var spec = UnityCliPlatformInstaller.ForPlatform(RuntimePlatform.WindowsEditor);
-            var info = UnityCliPlatformInstaller.CreateStartInfo(spec, "C:\\Temp\\install.ps1");
+            var executable = CreateFakeExecutable();
+            var session = new FakeStdioSession(
+                "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{}}",
+                "{\"jsonrpc\":\"2.0\",\"id\":2,\"result\":{\"tools\":[{" +
+                "\"name\":\"unity_editor_status\"},{\"name\":\"unity_cli_test\"}]}}");
+            try
+            {
+                var probe = new UnityCliOfficialMcpProbe(() => session);
+                var result = await probe.Test(
+                    executable,
+                    Path.GetTempPath(),
+                    TimeSpan.FromSeconds(1),
+                    CancellationToken.None);
 
-            Assert.IsFalse(info.UseShellExecute);
-            Assert.AreEqual("beta", info.EnvironmentVariables["UNITY_CLI_CHANNEL"]);
-            StringAssert.Contains("install.ps1", info.Arguments);
+                Assert.AreEqual("verified", result.state);
+                Assert.AreEqual(2, result.tool_count);
+                Assert.AreEqual(Path.GetFullPath(executable), session.Executable);
+                CollectionAssert.AreEqual(
+                    new[] { "mcp", "--project-path", Path.GetFullPath(Path.GetTempPath()) },
+                    session.Arguments);
+                Assert.AreEqual(3, session.Writes.Count);
+                StringAssert.Contains("\"method\":\"initialize\"", session.Writes[0]);
+                StringAssert.Contains(
+                    "\"method\":\"notifications/initialized\"",
+                    session.Writes[1]);
+                StringAssert.Contains("\"method\":\"tools/list\"", session.Writes[2]);
+                Assert.IsTrue(session.Terminated);
+            }
+            finally
+            {
+                File.Delete(executable);
+            }
+        }
+
+        [Test]
+        public async Task OfficialProbe_ReportsJsonRpcErrorAndAlwaysTerminates()
+        {
+            var executable = CreateFakeExecutable();
+            var session = new FakeStdioSession(
+                "{\"jsonrpc\":\"2.0\",\"id\":1,\"error\":{" +
+                "\"code\":-32000,\"message\":\"Editor target is not ready\"}}");
+            try
+            {
+                var result = await new UnityCliOfficialMcpProbe(() => session).Test(
+                    executable,
+                    Path.GetTempPath(),
+                    TimeSpan.FromSeconds(1),
+                    CancellationToken.None);
+
+                Assert.AreEqual("error", result.state);
+                StringAssert.Contains("not ready", result.error);
+                Assert.IsTrue(session.Terminated);
+            }
+            finally
+            {
+                File.Delete(executable);
+            }
+        }
+
+        [Test]
+        public async Task OfficialProbe_RejectsAnEmptyPipelineCatalog()
+        {
+            var executable = CreateFakeExecutable();
+            var session = new FakeStdioSession(
+                "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{}}",
+                "{\"jsonrpc\":\"2.0\",\"id\":2,\"result\":{\"tools\":[]}}");
+            try
+            {
+                var result = await new UnityCliOfficialMcpProbe(() => session).Test(
+                    executable,
+                    Path.GetTempPath(),
+                    TimeSpan.FromSeconds(1),
+                    CancellationToken.None);
+
+                Assert.AreEqual("error", result.state);
+                StringAssert.Contains("no Pipeline tools", result.error);
+                Assert.IsTrue(session.Terminated);
+            }
+            finally
+            {
+                File.Delete(executable);
+            }
+        }
+
+        [Test]
+        public async Task OfficialProbe_TimesOutAndTerminatesDeterministically()
+        {
+            var executable = CreateFakeExecutable();
+            var session = new FakeStdioSession();
+            try
+            {
+                var result = await new UnityCliOfficialMcpProbe(() => session).Test(
+                    executable,
+                    Path.GetTempPath(),
+                    TimeSpan.FromMilliseconds(20),
+                    CancellationToken.None);
+
+                Assert.AreEqual("error", result.state);
+                StringAssert.Contains("timed out", result.error);
+                Assert.IsTrue(session.Terminated);
+            }
+            finally
+            {
+                File.Delete(executable);
+            }
         }
 
         [Test]
@@ -381,7 +264,6 @@ namespace UniGame.UnityCli.Editor.Tests
                     {
                         Ok = true,
                         Output = "Bearer local-test-token user@example.com",
-                        Error = string.Empty,
                     });
                 });
 
@@ -392,59 +274,11 @@ namespace UniGame.UnityCli.Editor.Tests
         }
 
         [Test]
-        public async Task Installer_CancellationDoesNotRunOrLeaveTemporaryFile()
-        {
-            var cancellation = new CancellationTokenSource();
-            cancellation.Cancel();
-            var executed = false;
-            var result = await UnityCliPlatformInstaller.Install(
-                UnityCliPlatformInstaller.ForPlatform(RuntimePlatform.LinuxEditor),
-                cancellation.Token,
-                (_, token) =>
-                {
-                    token.ThrowIfCancellationRequested();
-                    return Task.FromResult(Encoding.UTF8.GetBytes("echo ok"));
-                },
-                (_, __, ___) =>
-                {
-                    executed = true;
-                    return Task.FromResult(new UnityCliInstallerResult { Ok = true });
-                });
-
-            Assert.IsFalse(result.Ok);
-            Assert.IsFalse(executed);
-            Assert.AreEqual("Install cancelled", result.Error);
-        }
-
-        [Test]
-        public async Task Installer_PropagatesTimeoutAndCleansTemporaryFile()
-        {
-            string temporaryPath = null;
-            var result = await UnityCliPlatformInstaller.Install(
-                UnityCliPlatformInstaller.ForPlatform(RuntimePlatform.OSXEditor),
-                CancellationToken.None,
-                (_, __) => Task.FromResult(Encoding.UTF8.GetBytes("echo ok")),
-                (_, path, __) =>
-                {
-                    temporaryPath = path;
-                    return Task.FromResult(new UnityCliInstallerResult
-                    {
-                        Ok = false,
-                        ExitCode = -1,
-                        Error = "Install timed out",
-                    });
-                });
-
-            Assert.IsFalse(result.Ok);
-            Assert.AreEqual("Install timed out", result.Error);
-            Assert.IsFalse(File.Exists(temporaryPath));
-        }
-
-        [Test]
         public void DiagnosticsSanitizeCredentialsAndEmail()
         {
             var sanitized = UnityCliSetupBridge.Sanitize(
-                "Bearer abc.def user@example.com password=hunter2 https://name:pass@proxy.local");
+                "Bearer abc.def user@example.com password=hunter2 " +
+                "https://name:pass@proxy.local");
 
             StringAssert.DoesNotContain("abc.def", sanitized);
             StringAssert.DoesNotContain("user@example.com", sanitized);
@@ -452,14 +286,58 @@ namespace UniGame.UnityCli.Editor.Tests
             StringAssert.DoesNotContain("name:pass", sanitized);
         }
 
-        private static UnityCliSetupPresenter ReadyPresenter()
+        private static string CreateFakeExecutable()
         {
-            var presenter = new UnityCliSetupPresenter();
-            presenter.InitializeAgents(
-                new[] { new UnityCliAgentStatus { id = "codex", installed = true } },
-                false,
-                null);
-            return presenter;
+            var path = Path.Combine(
+                Path.GetTempPath(),
+                "unity-cli-probe-" + Guid.NewGuid().ToString("N") + ".exe");
+            File.WriteAllBytes(path, Array.Empty<byte>());
+            return path;
+        }
+
+        private sealed class FakeStdioSession : IUnityCliStdioSession
+        {
+            private readonly Queue<string> _reads;
+
+            public FakeStdioSession(params string[] reads)
+            {
+                _reads = new Queue<string>(reads);
+            }
+
+            public string Executable { get; private set; }
+            public IReadOnlyList<string> Arguments { get; private set; }
+            public List<string> Writes { get; } = new List<string>();
+            public bool Terminated { get; private set; }
+
+            public void Start(string executable, IReadOnlyList<string> arguments)
+            {
+                Executable = executable;
+                Arguments = arguments.ToArray();
+            }
+
+            public Task WriteLineAsync(string line, CancellationToken cancellationToken)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                Writes.Add(line);
+                return Task.CompletedTask;
+            }
+
+            public async Task<string> ReadLineAsync(CancellationToken cancellationToken)
+            {
+                if (_reads.Count > 0)
+                    return _reads.Dequeue();
+                await Task.Delay(Timeout.Infinite, cancellationToken);
+                return null;
+            }
+
+            public void Terminate()
+            {
+                Terminated = true;
+            }
+
+            public void Dispose()
+            {
+            }
         }
     }
 }

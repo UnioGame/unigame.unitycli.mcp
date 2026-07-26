@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 export const supportedAgents = [
     "codex",
     "cursor",
@@ -8,95 +8,104 @@ export const supportedAgents = [
     "claude-code",
     "claude-desktop",
 ];
-export function discoverAgents(context) {
+const aliases = {
+    codex: "codex",
+    cursor: "cursor",
+    vscode: "vscode",
+    "vs-code": "vscode",
+    "visual-studio-code": "vscode",
+    copilot: "vscode",
+    cline: "cline",
+    claude: "claude-desktop",
+    "claude-code": "claude-code",
+    "claude-desktop": "claude-desktop",
+};
+/** Parses the intentionally loose JSON returned by experimental Unity CLI builds. */
+export function parseOfficialClientList(value) {
+    const result = new Map();
+    const root = value;
+    const items = Array.isArray(root)
+        ? root
+        : root && typeof root === "object"
+            ? (root.data ??
+                root.clients ??
+                root.agents ??
+                root.items ??
+                root.configurators)
+            : [];
+    if (!Array.isArray(items))
+        return result;
+    for (const item of items) {
+        const object = typeof item === "string" ? { id: item } : item;
+        const raw = String(object.key ??
+            object.id ??
+            object.name ??
+            object.client ??
+            object.agent ??
+            "")
+            .trim()
+            .toLowerCase()
+            .replaceAll("_", "-")
+            .replace(/\s+/g, "-");
+        const id = aliases[raw];
+        if (!id)
+            continue;
+        const status = String(object.status ?? "").toLowerCase();
+        const detected = Boolean(object.installed ||
+            object.detected ||
+            object.available ||
+            object.found) ||
+            (Boolean(object.configPath ?? object.config_path) &&
+                status !== "file-not-found" &&
+                status !== "no-file");
+        result.set(id, detected);
+    }
+    return result;
+}
+export function discoverAgents(context, official = new Map()) {
     const appData = process.platform === "win32"
-        ? join(context.homePath, "AppData", "Roaming")
-        : join(context.homePath, ".config");
+        ? join(context.home_path, "AppData", "Roaming")
+        : join(context.home_path, ".config");
     const definitions = [
-        {
-            id: "codex",
-            displayName: "Codex",
-            installed: existsAny(join(context.homePath, ".codex"), "codex"),
-            configPath: envOr("UNIGAME_CODEX_CONFIG", join(context.homePath, ".codex", "config.toml")),
-            format: "toml",
-            key: "mcpServers",
-            restartRequired: true,
-        },
-        {
-            id: "cursor",
-            displayName: "Cursor",
-            installed: existsAny(join(context.homePath, ".cursor"), "cursor"),
-            configPath: envOr("UNIGAME_CURSOR_CONFIG", join(context.homePath, ".cursor", "mcp.json")),
-            format: "jsonc",
-            key: "mcpServers",
-            restartRequired: true,
-        },
-        {
-            id: "vscode",
-            displayName: "VS Code / Copilot",
-            installed: existsAny(join(appData, "Code"), "code"),
-            configPath: envOr("UNIGAME_VSCODE_CONFIG", join(appData, "Code", "User", "mcp.json")),
-            format: "jsonc",
-            key: "servers",
-            restartRequired: true,
-        },
-        {
-            id: "cline",
-            displayName: "Cline",
-            installed: existsSync(join(context.homePath, ".cline")),
-            configPath: envOr("UNIGAME_CLINE_CONFIG", join(context.homePath, ".cline", "data", "settings", "cline_mcp_settings.json")),
-            format: "json",
-            key: "mcpServers",
-            restartRequired: true,
-        },
-        {
-            id: "claude-code",
-            displayName: "Claude Code",
-            installed: existsAny(join(context.homePath, ".claude"), "claude"),
-            configPath: envOr("UNIGAME_CLAUDE_CONFIG", join(context.homePath, ".claude.json")),
-            format: "json",
-            key: "mcpServers",
-            restartRequired: true,
-        },
-        {
-            id: "claude-desktop",
-            displayName: "Claude Desktop",
-            installed: existsSync(join(appData, "Claude")),
-            configPath: join(context.installRoot, "exports", `${context.serverName}.dxt.json`),
-            format: "dxt",
-            key: "mcpServers",
-            restartRequired: false,
-        },
+        adapter("codex", "Codex", join(context.home_path, ".codex", "config.toml"), "toml", "mcpServers", true, existsSync(join(context.home_path, ".codex"))),
+        adapter("cursor", "Cursor", join(context.home_path, ".cursor", "mcp.json"), "jsonc", "mcpServers", true, existsSync(join(context.home_path, ".cursor"))),
+        adapter("vscode", "VS Code / Copilot", join(appData, "Code", "User", "mcp.json"), "jsonc", "servers", true, existsSync(join(appData, "Code"))),
+        adapter("cline", "Cline", join(appData, "Code", "User", "settings.json"), "jsonc", "cline.mcpServers", true, existsSync(join(appData, "Code"))),
+        adapter("claude-code", "Claude Code", join(context.home_path, ".claude.json"), "json", "mcpServers", true, existsSync(join(context.home_path, ".claude"))),
+        adapter("claude-desktop", "Claude Desktop", join(appData, "Claude", "claude_desktop_config.json"), "json", "mcpServers", true, existsSync(join(appData, "Claude"))),
     ];
-    return definitions;
+    return definitions
+        .map((entry) => ({
+        ...entry,
+        detected: official.get(entry.agent_id) === true || entry.detected,
+        official_id: entry.agent_id,
+    }))
+        .sort((left, right) => Number(right.detected) - Number(left.detected) ||
+        left.display_name.localeCompare(right.display_name));
 }
-export function registrationValue(context, transport, serverPath, tokenFile, port = 0) {
-    const env = {
-        UNIGAME_UNITYCLI_ROOT: dirname(dirname(serverPath)),
-        UNIGAME_UNITYCLI_DATA_PATH: context.dataPath,
-    };
-    const value = transport === "http"
-        ? {
+export function registrationValue(context, unityCli, transport, broker) {
+    if (transport === "http") {
+        return {
             type: "http",
-            url: `http://127.0.0.1:${port}/mcp`,
-            headers: { Authorization: `Bearer file:${tokenFile}` },
-        }
-        : {
-            command: process.execPath,
-            args: [serverPath],
-            env,
+            url: `http://127.0.0.1:${broker.port}/mcp`,
+            headers: { Authorization: `Bearer file:${broker.token_file}` },
         };
-    return value;
+    }
+    return {
+        command: unityCli,
+        args: ["mcp", "--project-path", context.project_path],
+    };
 }
-function envOr(name, fallback) {
-    return process.env[name] || fallback;
-}
-function existsAny(directory, executable) {
-    if (existsSync(directory))
-        return true;
-    const extensions = process.platform === "win32" ? [".exe", ".cmd", ""] : [""];
-    return (process.env.PATH ?? "")
-        .split(process.platform === "win32" ? ";" : ":")
-        .some((entry) => extensions.some((ext) => existsSync(join(entry, executable + ext))));
+function adapter(agent_id, display_name, fallback, format, key, restart_required, detected) {
+    const envName = `UNIGAME_${agent_id.toUpperCase().replaceAll("-", "_")}_CONFIG`;
+    return {
+        agent_id,
+        display_name,
+        detected,
+        config_path: process.env[envName] || fallback,
+        format,
+        key,
+        restart_required,
+    };
 }
 //# sourceMappingURL=agents.js.map

@@ -55,7 +55,7 @@ export function parseJsonc(text: string): Record<string, unknown> {
 
 export function patchServerJsonc(
   text: string,
-  property: "mcpServers" | "servers",
+  property: "mcpServers" | "servers" | "cline.mcpServers",
   serverName: string,
   value: unknown | undefined,
 ): string {
