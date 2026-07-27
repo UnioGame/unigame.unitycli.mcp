@@ -41,6 +41,7 @@
                             <ui:Label name="editor-detail" text="Checking…" class="card-detail" />
                             <ui:Label name="editor-reason" text="" class="disabled-reason" />
                         </ui:VisualElement>
+                        <ui:Button name="start-pipeline" text="Start Pipeline" class="button-primary button-compact" />
                     </ui:VisualElement>
                 </ui:VisualElement>
             </ui:VisualElement>

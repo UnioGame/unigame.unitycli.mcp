@@ -47,6 +47,7 @@ namespace UniGame.UnityCli.Editor
         private string _lastBackup = string.Empty;
         private string _installDiagnostics = string.Empty;
         private bool _busy;
+        private bool _refreshing;
         private bool _showAllAgents;
         private UnityCliSetupResponse _status;
         private UnityCliOfficialMcpProbeResult _testResult;
@@ -57,6 +58,7 @@ namespace UniGame.UnityCli.Editor
         private Button _refreshButton;
         private Button _installCliButton;
         private Button _installPipelineButton;
+        private Button _startPipelineButton;
         private VisualElement _cliLamp;
         private VisualElement _pipelineLamp;
         private VisualElement _editorLamp;
@@ -133,6 +135,7 @@ namespace UniGame.UnityCli.Editor
             _refreshButton = rootVisualElement.Q<Button>("refresh-status");
             _installCliButton = rootVisualElement.Q<Button>("install-cli");
             _installPipelineButton = rootVisualElement.Q<Button>("install-pipeline");
+            _startPipelineButton = rootVisualElement.Q<Button>("start-pipeline");
             _cliLamp = rootVisualElement.Q<VisualElement>("cli-lamp");
             _pipelineLamp = rootVisualElement.Q<VisualElement>("pipeline-lamp");
             _editorLamp = rootVisualElement.Q<VisualElement>("editor-lamp");
@@ -168,6 +171,7 @@ namespace UniGame.UnityCli.Editor
             _refreshButton.clicked += RefreshStatus;
             _installCliButton.clicked += InstallUnityCli;
             _installPipelineButton.clicked += InstallPipeline;
+            _startPipelineButton.clicked += StartPipeline;
             _testMcpButton.clicked += TestOfficialMcp;
             _showAllButton.clicked += () =>
             {
@@ -204,12 +208,14 @@ namespace UniGame.UnityCli.Editor
 
         private async void RefreshStatus()
         {
-            if (_busy)
+            if (_busy || _refreshing)
                 return;
+            _refreshing = true;
             RefreshLocalStatus();
             _testResult = null;
             if (!File.Exists(_nodePath) || !File.Exists(_setupPath))
             {
+                _refreshing = false;
                 _lastResponse =
                     "{\"ok\":false,\"operation\":\"probe\",\"errors\":[\"Setup backend is unavailable\"]}";
                 _status = null;
@@ -223,7 +229,8 @@ namespace UniGame.UnityCli.Editor
                 return;
             }
 
-            SetBusy(true, "Checking…");
+            _pageStatus.text = "Checking…";
+            _refreshButton.SetEnabled(false);
             var response = await ExecuteSetup(BuildRequest("probe", "all", string.Empty, true));
             if (response?.ok == true)
             {
@@ -239,7 +246,12 @@ namespace UniGame.UnityCli.Editor
                     JoinErrors(response, "The setup backend returned invalid JSON."));
             }
 
-            SetBusy(false, "Ready");
+            _refreshing = false;
+            if (!_busy)
+            {
+                _pageStatus.text = "Ready";
+                Render();
+            }
         }
 
         private async void TestOfficialMcp()
@@ -455,9 +467,13 @@ namespace UniGame.UnityCli.Editor
             var cliReady = !string.IsNullOrWhiteSpace(_cliVersion);
             var pipelineReady = !string.IsNullOrWhiteSpace(_pipelineVersion);
             var current = _status?.data?.current_editor;
-            var editorReady = current?.ready == true ||
-                              string.Equals(current?.state, "ready",
-                                  StringComparison.OrdinalIgnoreCase);
+            var descriptorPath = Path.Combine(
+                UnityCliSetupBridge.ProjectPath(),
+                "Library",
+                "Pipeline",
+                ".unity-pipeline-port");
+            var editorReady = pipelineReady && File.Exists(descriptorPath);
+            var editorCompiling = EditorApplication.isCompiling;
 
             SetReadiness(
                 _cliLamp,
@@ -481,22 +497,31 @@ namespace UniGame.UnityCli.Editor
                 _editorReason,
                 editorReady,
                 editorReady
-                    ? $"{Math.Max(0, current.tool_count)} tools ready"
-                    : ValueOr(current?.state, "Not ready"),
+                    ? current?.tool_count > 0
+                        ? $"{current.tool_count} tools ready"
+                        : "Pipeline server running"
+                    : editorCompiling
+                        ? "Compiling scripts"
+                        : "Pipeline server stopped",
                 editorReady
                     ? string.Empty
-                    : ValueOr(current?.error, "Wait for Pipeline to publish this Editor."));
+                    : editorCompiling
+                        ? "Wait until Unity finishes compiling."
+                        : "Click Start Pipeline to make Editor tools available.");
 
             _installCliButton.style.display = cliReady ? DisplayStyle.None : DisplayStyle.Flex;
             _installPipelineButton.style.display =
                 pipelineReady ? DisplayStyle.None : DisplayStyle.Flex;
+            _startPipelineButton.style.display =
+                pipelineReady && !editorReady ? DisplayStyle.Flex : DisplayStyle.None;
             _installCliButton.SetEnabled(!_busy);
             _installPipelineButton.SetEnabled(!_busy);
+            _startPipelineButton.SetEnabled(!_busy && !editorCompiling);
             RenderOfficialMcp();
             RenderAgents();
             RenderSkills();
             RenderAdvanced();
-            _refreshButton.SetEnabled(!_busy);
+            _refreshButton.SetEnabled(!_busy && !_refreshing);
             _diagnostics.value = BuildDiagnostics();
         }
 
@@ -543,7 +568,7 @@ namespace UniGame.UnityCli.Editor
                             : "Complete readiness checks before testing.";
             var canTest = CanTestOfficialMcp(out var reason);
             _testMcpButton.SetEnabled(canTest && !_busy);
-            _testMcpReason.text = !canTest ? reason : _busy ? "Another action is running." : string.Empty;
+            _testMcpReason.text = !canTest ? reason : string.Empty;
         }
 
         private void RenderAgents()
@@ -780,20 +805,44 @@ namespace UniGame.UnityCli.Editor
 
             if (string.IsNullOrWhiteSpace(_pipelineVersion))
             {
-                reason = "Install Pipeline so the current Editor can publish its tools.";
+                reason = "Install Pipeline to use Editor tools.";
                 return false;
             }
 
-            var current = _status?.data?.current_editor;
-            if (current != null && !current.ready &&
-                !string.Equals(current.state, "ready", StringComparison.OrdinalIgnoreCase))
+            var descriptorPath = Path.Combine(
+                UnityCliSetupBridge.ProjectPath(),
+                "Library",
+                "Pipeline",
+                ".unity-pipeline-port");
+            if (!File.Exists(descriptorPath))
             {
-                reason = ValueOr(current.error, "This Editor is not ready for MCP tools.");
+                reason = EditorApplication.isCompiling
+                    ? "Wait until Unity finishes compiling."
+                    : "Start Pipeline for this Editor.";
                 return false;
             }
 
             reason = string.Empty;
             return true;
+        }
+
+        private void StartPipeline()
+        {
+            if (_busy || EditorApplication.isCompiling)
+                return;
+            SetBusy(true, "Starting Pipeline…");
+            EditorApplication.ExecuteMenuItem("Pipeline/Stop Server");
+            var started = EditorApplication.ExecuteMenuItem("Pipeline/Start Server");
+            SetBusy(false, started ? "Ready" : "Pipeline start failed");
+            if (!started)
+            {
+                ShowResult(
+                    false,
+                    "Pipeline start failed",
+                    "Open Pipeline/Settings and verify that the server can start.");
+                return;
+            }
+            rootVisualElement.schedule.Execute(RefreshStatus).ExecuteLater(500);
         }
 
         private bool SetupBackendReady()
